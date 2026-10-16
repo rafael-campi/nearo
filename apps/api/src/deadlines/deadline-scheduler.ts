@@ -38,6 +38,7 @@ export class BullDeadlineScheduler extends DeadlineScheduler implements OnApplic
   private readonly connection: Redis;
   private readonly queue: Queue<DeadlineJob>;
   private worker: Worker<DeadlineJob> | null = null;
+  private workerConnection: Redis | null = null;
   private handler: DeadlineHandler | null = null;
 
   constructor(@Inject(APP_CONFIG) private readonly config: AppConfig) {
@@ -50,7 +51,8 @@ export class BullDeadlineScheduler extends DeadlineScheduler implements OnApplic
   setHandler(handler: DeadlineHandler): void {
     this.handler = handler;
     if (this.config.WORKERS === 'on' && !this.worker) {
-      this.worker = new Worker<DeadlineJob>(QUEUE, (job) => this.run(job), { connection: this.connection.duplicate() });
+      this.workerConnection = this.connection.duplicate();
+      this.worker = new Worker<DeadlineJob>(QUEUE, (job) => this.run(job), { connection: this.workerConnection });
       this.worker.on('failed', (job, error) => this.logger.error(`Prazo ${job?.id} falhou: ${error.message}`));
     }
   }
@@ -83,6 +85,7 @@ export class BullDeadlineScheduler extends DeadlineScheduler implements OnApplic
   async onApplicationShutdown(): Promise<void> {
     await this.worker?.close();
     await this.queue.close();
+    this.workerConnection?.disconnect();
     this.connection.disconnect();
   }
 }

@@ -5,9 +5,8 @@ Meta (CLAUDE.md), **medida em build de release** num Android de entrada:
 - abrir em **menos de 2 s** (abertura a frio, até a primeira tela desenhada);
 - listas a **60 fps** (quase nenhum quadro acima de 16,6 ms): pedidos abertos, atualizações e chat.
 
-> **Status: medição no aparelho pendente.** Não há aparelho nem Android SDK no ambiente onde o código foi escrito,
-> então os números abaixo (tabela "Resultados") ainda estão vazios. O que foi possível fazer sem aparelho está em
-> "O que já foi verificado"; o passo a passo para medir está logo depois. O ticket só fecha com a tabela preenchida.
+> **Status: medido no emulador; falta o aparelho de entrada real.** Os números do emulador (tabela "Resultados") cumprem
+> a meta com folga, mas são otimistas por natureza. O ticket só fecha com a linha do aparelho real preenchida.
 
 ## Aparelho de teste
 
@@ -55,13 +54,45 @@ scripts/perf/android-frames.sh 10 com.despacho.app   # abra uma conversa com 100
 Para investigar um gargalo, use o Perfetto/`adb shell perfetto` ou o *Profiler* do Android Studio com o build de
 release (`debuggable` desligado só altera o resultado de forma desprezível; nunca meça em modo dev).
 
+## Emulador (alternativa a um aparelho)
+
+Dá para medir num emulador Android quando não há aparelho à mão, sabendo que **os números saem otimistas**: ele roda
+na CPU/GPU da máquina de desenvolvimento, muito mais rápidas que as de um celular de entrada. Serve para pegar
+regressões e problemas grosseiros, não para dar o aceite final da meta.
+
+```bash
+source scripts/android-env.sh            # JDK, adb e emulator no PATH (instalados em ~/jdk e ~/Android/Sdk)
+emulator -avd despacho-entrada -gpu host # AVD com 2 GB de RAM e 2 núcleos; abre com janela
+# sem janela: emulator -avd despacho-entrada -no-window -no-audio -gpu host &
+```
+
+- **Use `-gpu host`.** Com `-gpu swiftshader_indirect` o emulador desenha as telas na CPU e as listas parecem ruins
+  (p90 de 57 ms e 35% de quadros lentos nesta máquina) mesmo com o Android limpo: foi o que aconteceu na primeira
+  medição, e a lista de Configurações do próprio Android também piorou. Sempre faça um **teste de controle** (rolar a
+  lista de Configurações) com o mesmo renderizador antes de concluir que o app é o gargalo.
+- O build de release contra uma API local em HTTP precisa de `ALLOW_CLEARTEXT=1` e da pasta nativa regenerada:
+  `cd apps/mobile && ALLOW_CLEARTEXT=1 npx expo prebuild --platform android && ALLOW_CLEARTEXT=1 npx expo run:android --variant release`.
+  Produção segue só HTTPS (o padrão do Android).
+- Dados de teste (empresa, prestador, cliente, 40 pedidos abertos, conversa de 120 mensagens):
+  `node scripts/perf/seed.mjs http://localhost:3000 /caminho/do/log-da-api` (com a API rodando e `GEOCODER=none`).
+  Contas: `joao@demo.com` / `senha-prestador`, `rita@demo.com` / `senha-cliente`, `admin@demo.com` / `senha-segura`.
+
 ## Resultados
 
-Preencha ao medir (mediana de 10 rodadas; fluidez com 10 s de rolagem).
+Mediana de 10 rodadas (abertura); 14 idas e voltas de rolagem (fluidez). "Janky" = quadros que perderam o prazo.
 
-| Data | Aparelho / Android / RAM | Abertura a frio (mediana) | Pedidos abertos (p90 · janky) | Atualizações (p90 · janky) | Chat (p90 · janky) |
+| Data | Aparelho / Android / RAM | Abertura a frio | Pedidos abertos (p50 · p90 · janky) | Atualizações | Chat (120 msgs) |
 |---|---|---|---|---|---|
-| _pendente_ | _pendente_ | _pendente_ | _pendente_ | _pendente_ | _pendente_ |
+| 2026-10-16 | Emulador x86_64, host GPU (AMD Radeon), Android 14, 2 GB, 2 núcleos | **1.190 ms** (min 837, máx 1.300) | 16 ms · 16 ms · 0,16% | 16 ms · 16 ms · 0,31% | 20 ms · 21 ms · 0,16% |
+| _pendente_ | **Android de entrada real** (o que o ticket pede) | _pendente_ | _pendente_ | _pendente_ | _pendente_ |
+
+Controle no mesmo emulador: lista de Configurações do Android, p50 16 ms · p90 17 ms · 5,9% janky.
+
+Leitura: no emulador a meta é cumprida com folga na abertura (< 2 s) e nas listas de pedidos e atualizações (60 fps).
+O **chat** fica um pouco acima de 16,6 ms por quadro (20–21 ms), com poucos quadros perdidos; é a lista mais pesada
+(balões, nome, horário) e a primeira a conferir num aparelho de entrada. A abertura logo depois de instalar o APK
+é mais lenta (2,7 s na primeira vez, por causa da otimização do Android) e não conta. O número "abertura" é o
+`TotalTime` do `am start -W` (primeiro quadro da atividade), não o tempo até a tela ficar interativa.
 
 ## O que já foi verificado sem aparelho
 

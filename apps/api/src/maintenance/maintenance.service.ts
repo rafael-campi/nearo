@@ -18,6 +18,7 @@ export class MaintenanceService implements OnModuleInit, OnApplicationShutdown {
   private readonly connection: Redis;
   private readonly queue: Queue;
   private worker: Worker | null = null;
+  private workerConnection: Redis | null = null;
 
   constructor(
     @Inject(APP_CONFIG) private readonly config: AppConfig,
@@ -32,12 +33,13 @@ export class MaintenanceService implements OnModuleInit, OnApplicationShutdown {
     // Todo dia às 03:00 (idempotente: o mesmo id de agendador só é atualizado).
     await this.queue.upsertJobScheduler(PURGE_POSITIONS, { pattern: '0 3 * * *', tz: 'America/Sao_Paulo' }, { name: PURGE_POSITIONS });
     if (this.config.WORKERS === 'on') {
+      this.workerConnection = this.connection.duplicate();
       this.worker = new Worker(
         QUEUE,
         async (job) => {
           if (job.name === PURGE_POSITIONS) this.logger.log(`Trilha de GPS: ${await this.purgePositions()} pontos apagados`);
         },
-        { connection: this.connection.duplicate() },
+        { connection: this.workerConnection },
       );
       this.worker.on('failed', (job, error) => this.logger.error(`${job?.name} falhou: ${error.message}`));
     }
@@ -53,6 +55,7 @@ export class MaintenanceService implements OnModuleInit, OnApplicationShutdown {
   async onApplicationShutdown(): Promise<void> {
     await this.worker?.close();
     await this.queue.close();
+    this.workerConnection?.disconnect();
     this.connection.disconnect();
   }
 }

@@ -24,6 +24,8 @@ async function main() {
   }
   // Conecta como dono das tabelas: desativar empresa é operação fora do RLS.
   process.env.DATABASE_URL = process.env.MIGRATION_DATABASE_URL;
+  // Script de plataforma não processa filas: sem workers, o processo termina ao fechar.
+  process.env.WORKERS = 'off';
   const app = await NestFactory.createApplicationContext(AppModule, { logger: ['error', 'warn', 'log'] });
   try {
     const cancelled = await deactivateCompany(app, process.argv.slice(2));

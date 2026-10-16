@@ -26,6 +26,7 @@ export class PushService implements OnModuleInit, OnApplicationShutdown {
   private readonly connection: Redis;
   private readonly queue: Queue<PushJob>;
   private worker: Worker<PushJob> | null = null;
+  private workerConnection: Redis | null = null;
 
   constructor(
     @Inject(APP_CONFIG) private readonly config: AppConfig,
@@ -38,7 +39,8 @@ export class PushService implements OnModuleInit, OnApplicationShutdown {
 
   onModuleInit(): void {
     if (this.config.WORKERS !== 'on') return;
-    this.worker = new Worker<PushJob>(QUEUE, (job) => this.process(job.data), { connection: this.connection.duplicate() });
+    this.workerConnection = this.connection.duplicate();
+    this.worker = new Worker<PushJob>(QUEUE, (job) => this.process(job.data), { connection: this.workerConnection });
     this.worker.on('failed', (job, error) => this.logger.error(`Push ${job?.id} falhou: ${error.message}`));
   }
 
@@ -77,6 +79,7 @@ export class PushService implements OnModuleInit, OnApplicationShutdown {
   async onApplicationShutdown(): Promise<void> {
     await this.worker?.close();
     await this.queue.close();
+    this.workerConnection?.disconnect();
     this.connection.disconnect();
   }
 }

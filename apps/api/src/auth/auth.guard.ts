@@ -38,6 +38,8 @@ export class AuthGuard implements CanActivate {
   ) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
+    // O socket autentica na conexão (RealtimeGateway); este guard cuida só de HTTP.
+    if (context.getType() !== 'http') return true;
     const targets = [context.getHandler(), context.getClass()];
     if (this.reflector.getAllAndOverride<boolean>(IS_PUBLIC, targets)) return true;
 

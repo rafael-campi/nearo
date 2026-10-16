@@ -55,3 +55,26 @@ export const serviceRequestSchema = z.object({
   createdAt: z.iso.datetime(),
 });
 export type ServiceRequest = z.infer<typeof serviceRequestSchema>;
+
+/**
+ * Visão reduzida de um pedido aberto, para o prestador decidir se aceita (ADR 0002):
+ * sem endereço completo, coordenadas exatas nem telefone.
+ */
+export const openServiceRequestSchema = z.object({
+  id: z.uuid(),
+  companyId: z.uuid(),
+  categoryName: z.string(),
+  description: z.string(),
+  neighborhood: z.string().nullable(),
+  /** Distância aproximada (km, uma casa decimal) do endereço-base do prestador. */
+  distanceKm: z.number(),
+  clientFirstName: z.string(),
+  createdAt: z.iso.datetime(),
+});
+export type OpenServiceRequest = z.infer<typeof openServiceRequestSchema>;
+
+export const acceptServiceRequestResponseSchema = z.object({
+  id: z.uuid(),
+  status: serviceRequestStatusSchema,
+});
+export type AcceptServiceRequestResponse = z.infer<typeof acceptServiceRequestResponseSchema>;

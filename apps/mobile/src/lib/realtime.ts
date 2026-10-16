@@ -1,0 +1,46 @@
+import {
+  openRequestsChangedEventSchema,
+  serviceRequestUpdatedEventSchema,
+  socketEvents,
+  notificationEventSchema,
+} from '@despacho/shared';
+import { useQueryClient } from '@tanstack/react-query';
+import { useEffect } from 'react';
+import { io } from 'socket.io-client';
+import { API_URL } from './config';
+import { queryKeys } from './queries';
+import { useSession } from './session';
+
+/**
+ * Um socket enquanto há sessão (ADR 0005). Cada evento invalida só os dados da tela afetada.
+ */
+export function useRealtime() {
+  const token = useSession((s) => s.token);
+  const queryClient = useQueryClient();
+
+  useEffect(() => {
+    if (!token) return;
+    const socket = io(API_URL, { auth: { token }, transports: ['websocket'] });
+
+    socket.on(socketEvents.notification, (payload: unknown) => {
+      const notification = notificationEventSchema.safeParse(payload);
+      queryClient.invalidateQueries({ queryKey: queryKeys.notifications });
+      if (notification.success && notification.data.type === 'request_accepted') {
+        queryClient.invalidateQueries({ queryKey: queryKeys.myRequests });
+      }
+    });
+    socket.on(socketEvents.serviceRequestUpdated, (payload: unknown) => {
+      if (serviceRequestUpdatedEventSchema.safeParse(payload).success) {
+        queryClient.invalidateQueries({ queryKey: queryKeys.myRequests });
+      }
+    });
+    socket.on(socketEvents.openRequestsChanged, (payload: unknown) => {
+      const event = openRequestsChangedEventSchema.safeParse(payload);
+      if (event.success) queryClient.invalidateQueries({ queryKey: queryKeys.openRequests(event.data.companyId) });
+    });
+
+    return () => {
+      socket.disconnect();
+    };
+  }, [token, queryClient]);
+}

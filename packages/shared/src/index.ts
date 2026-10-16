@@ -3,5 +3,7 @@ export * from './category.js';
 export * from './company.js';
 export * from './invite.js';
 export * from './membership.js';
+export * from './notification.js';
 export * from './provider.js';
+export * from './realtime.js';
 export * from './service-request.js';

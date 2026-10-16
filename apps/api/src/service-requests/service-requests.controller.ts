@@ -1,7 +1,9 @@
-import { Body, Controller, Get, Post } from '@nestjs/common';
+import { Body, Controller, Get, HttpCode, Param, ParseUUIDPipe, Post } from '@nestjs/common';
 import {
   createServiceRequestSchema,
+  type AcceptServiceRequestResponse,
   type CategoryOption,
+  type OpenServiceRequest,
   type ServiceRequest,
 } from '@despacho/shared';
 import type { z } from 'zod';
@@ -35,6 +37,32 @@ export class ServiceRequestsController {
   @Get('company/service-requests')
   forCompany(): Promise<ServiceRequest[]> {
     return this.requests.forCompany();
+  }
+
+  @CompanyRoles('provider')
+  @Get('company/open-requests')
+  openForProvider(@Tenant() tenant: TenantContext): Promise<OpenServiceRequest[]> {
+    return this.requests.openForProvider(tenant.userId);
+  }
+
+  @CompanyRoles('provider')
+  @Post('company/service-requests/:id/accept')
+  @HttpCode(200)
+  accept(
+    @Tenant() tenant: TenantContext,
+    @Param('id', new ParseUUIDPipe({ errorHttpStatusCode: 404 })) id: string,
+  ): Promise<AcceptServiceRequestResponse> {
+    return this.requests.accept(tenant.userId, id);
+  }
+
+  @CompanyRoles('provider')
+  @Post('company/service-requests/:id/decline')
+  @HttpCode(204)
+  decline(
+    @Tenant() tenant: TenantContext,
+    @Param('id', new ParseUUIDPipe({ errorHttpStatusCode: 404 })) id: string,
+  ): Promise<void> {
+    return this.requests.decline(tenant.userId, id);
   }
 
   @Get('my/service-requests')

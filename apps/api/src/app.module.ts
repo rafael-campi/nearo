@@ -14,6 +14,10 @@ import { HealthController } from './health/health.controller.js';
 import { InvitesController } from './invites/invites.controller.js';
 import { InvitesService } from './invites/invites.service.js';
 import { MailModule } from './mail/mailer.js';
+import { NotificationsController } from './notifications/notifications.controller.js';
+import { NotificationsService } from './notifications/notifications.service.js';
+import { RealtimeGateway } from './realtime/realtime.gateway.js';
+import { RealtimeService } from './realtime/realtime.service.js';
 import { ProvidersController } from './providers/providers.controller.js';
 import { ProvidersService } from './providers/providers.service.js';
 import { RedisModule } from './redis/redis.module.js';
@@ -29,7 +33,7 @@ class ConfigModule {}
 
 @Module({
   imports: [ConfigModule, ClockModule, DatabaseModule, RedisModule, MailModule, AuthModule, GeocodingModule],
-  controllers: [HealthController, CompanyController, InvitesController, CategoriesController, ClientsController, ProvidersController, ServiceRequestsController],
-  providers: [CompaniesService, InvitesService, CategoriesService, ClientsService, ProvidersService, ServiceRequestsService],
+  controllers: [HealthController, CompanyController, InvitesController, CategoriesController, ClientsController, ProvidersController, ServiceRequestsController, NotificationsController],
+  providers: [CompaniesService, InvitesService, CategoriesService, ClientsService, ProvidersService, ServiceRequestsService, NotificationsService, RealtimeService, RealtimeGateway],
 })
 export class AppModule {}

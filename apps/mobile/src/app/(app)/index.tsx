@@ -73,6 +73,9 @@ export default function HomeScreen() {
       )}
       <View style={styles.footer}>
         {mode === 'client' ? <Button onPress={() => router.push('/join')}>Entrar numa empresa</Button> : null}
+        <Button variant="link" onPress={() => router.push('/notifications')}>
+          Atualizações
+        </Button>
         <Button variant="link" onPress={signOut}>
           Sair
         </Button>
@@ -213,6 +216,21 @@ function ProviderCompany({ membership }: { membership: Membership }) {
             {profile.data.available ? 'Disponível' : 'Indisponível'} · até {profile.data.serviceRadiusKm} km
           </Text>
         )
+      ) : null}
+      {profile.data && !missingBase ? (
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={`Ver pedidos abertos de ${membership.companyName}`}
+          onPress={() =>
+            router.push({
+              pathname: '/open-requests/[companyId]',
+              params: { companyId: membership.companyId, companyName: membership.companyName },
+            })
+          }
+          style={({ pressed }) => [styles.smallButton, { alignSelf: 'flex-start', marginTop: 8 }, pressed && { opacity: 0.7 }]}
+        >
+          <Text style={styles.smallButtonText}>Pedidos abertos</Text>
+        </Pressable>
       ) : null}
     </Pressable>
   );

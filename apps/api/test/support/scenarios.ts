@@ -67,6 +67,7 @@ export async function providerOf(
   admin: { token: string; companyId: string },
   name: string,
   email: string,
+  password = 'senha-prestador',
 ): Promise<string> {
   await http(s)
     .post('/company/invites')
@@ -75,7 +76,7 @@ export async function providerOf(
     .expect(201);
   const res = await http(s)
     .post(`/invites/${s.mailer.inviteTokenFor(email)}/accept`)
-    .send({ name, password: 'senha-prestador' })
+    .send({ name, password })
     .expect(200);
   return res.body.token;
 }
@@ -96,4 +97,37 @@ export async function clientOf(
 export async function categoryOf(s: TestApp, admin: { token: string; companyId: string }, name: string): Promise<string> {
   const res = await http(s).post('/company/categories').set(asUser(admin.token, admin.companyId)).send({ name }).expect(201);
   return res.body.id;
+}
+
+/** Prestador pronto para receber pedidos: categorias, endereço-base, raio e disponível. */
+export async function readyProvider(
+  s: TestApp,
+  admin: { token: string; companyId: string },
+  name: string,
+  email: string,
+  options: {
+    categoryIds: string[];
+    base: { latitude: number; longitude: number } | null;
+    radiusKm?: number;
+    available?: boolean;
+    /** Senha atual, se a pessoa já tem conta. */
+    password?: string;
+  },
+): Promise<{ token: string; membershipId: string }> {
+  const token = await providerOf(s, admin, name, email, options.password);
+  const providers = (await http(s).get('/company/providers').set(asUser(admin.token, admin.companyId)).expect(200)).body;
+  const membershipId = providers.find((p: { email: string }) => p.email === email).membershipId;
+  await http(s)
+    .put(`/company/providers/${membershipId}/categories`)
+    .set(asUser(admin.token, admin.companyId))
+    .send({ categoryIds: options.categoryIds })
+    .expect(200);
+  if (options.base) {
+    await http(s)
+      .patch('/company/provider-profile')
+      .set(asUser(token, admin.companyId))
+      .send({ baseLocation: options.base, serviceRadiusKm: options.radiusKm ?? 20, available: options.available ?? true })
+      .expect(200);
+  }
+  return { token, membershipId };
 }

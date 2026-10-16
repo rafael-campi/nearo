@@ -158,6 +158,49 @@ export const serviceRequests = pgTable('service_requests', {
   addressComplement: text('address_complement').notNull().default(''),
   neighborhood: text('neighborhood'),
   status: serviceRequestStatus('status').notNull().default('open'),
+  /** Vínculo do prestador que aceitou (ou foi atribuído). */
+  providerMembershipId: uuid('provider_membership_id').references(() => memberships.id),
+  acceptedAt: timestamp('accepted_at', { withTimezone: true }),
   createdAt: createdAt(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+});
+
+export const declineBy = pgEnum('decline_by', ['provider', 'client']);
+
+/** Recusa: o prestador recusou o pedido, ou o cliente recusou o prestador. Ele deixa de ver o pedido. */
+export const serviceRequestDeclines = pgTable(
+  'service_request_declines',
+  {
+    companyId: uuid('company_id')
+      .notNull()
+      .references(() => companies.id, { onDelete: 'cascade' }),
+    serviceRequestId: uuid('service_request_id')
+      .notNull()
+      .references(() => serviceRequests.id, { onDelete: 'cascade' }),
+    providerMembershipId: uuid('provider_membership_id')
+      .notNull()
+      .references(() => memberships.id, { onDelete: 'cascade' }),
+    by: declineBy('by').notNull(),
+    createdAt: createdAt(),
+  },
+  (t) => [primaryKey({ columns: [t.serviceRequestId, t.providerMembershipId] })],
+);
+
+export const notificationType = pgEnum('notification_type', ['new_request', 'request_accepted']);
+
+/** Atualização gravada para um usuário; o socket (e, depois, o push) a entrega. */
+export const notifications = pgTable('notifications', {
+  id: id(),
+  companyId: uuid('company_id')
+    .notNull()
+    .references(() => companies.id, { onDelete: 'cascade' }),
+  userId: uuid('user_id')
+    .notNull()
+    .references(() => users.id, { onDelete: 'cascade' }),
+  type: notificationType('type').notNull(),
+  title: text('title').notNull(),
+  body: text('body').notNull(),
+  serviceRequestId: uuid('service_request_id').references(() => serviceRequests.id, { onDelete: 'cascade' }),
+  readAt: timestamp('read_at', { withTimezone: true }),
+  createdAt: createdAt(),
 });

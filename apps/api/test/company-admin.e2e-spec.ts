@@ -75,7 +75,7 @@ describe('empresa por script e primeiro admin', () => {
       });
 
       const panel = await http(s).get('/company').set(asUser(login.body.token, company.id)).expect(200);
-      expect(panel.body).toEqual({ id: company.id, name: 'Elétrica Silva' });
+      expect(panel.body).toEqual({ id: company.id, name: 'Elétrica Silva', assignmentMode: 'broadcast' });
     });
 
     it('exige nome de quem ainda não tem conta e senha de pelo menos 8 caracteres', async () => {

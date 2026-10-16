@@ -111,6 +111,7 @@ describe('broadcast: prestador apto vê e aceita ou recusa', () => {
         neighborhood: 'Sé',
         distanceKm: expect.closeTo(2.6, 0),
         clientFirstName: 'Rita',
+        assigned: false,
         createdAt: expect.any(String),
       });
       expect(JSON.stringify(open)).not.toContain('Apto 32');

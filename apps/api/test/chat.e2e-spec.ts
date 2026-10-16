@@ -93,6 +93,7 @@ describe('chat de texto', () => {
         senderRole: 'client',
         senderName: 'Rita Souza',
         body: 'Oi, tem previsão?',
+        photoUrl: null,
         createdAt: expect.any(String),
       });
       await say(joao.token, 'Chego em 20 minutos').expect(200);

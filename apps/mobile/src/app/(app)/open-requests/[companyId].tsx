@@ -4,6 +4,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { router, Stack, useLocalSearchParams } from 'expo-router';
 import { useEffect } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
+import { PhotoStrip } from '@/components/photo-strip';
 import { ReasonAction } from '@/components/reason-action';
 import { colors, ErrorText } from '@/components/ui';
 import { api } from '@/lib/api';
@@ -57,6 +58,7 @@ export default function OpenRequestsScreen() {
             <Text style={styles.meta}>
               {item.neighborhood ?? 'Bairro não identificado'} · a ~{item.distanceKm.toLocaleString('pt-BR')} km · {item.clientFirstName}
             </Text>
+            <PhotoStrip uris={item.photos} />
             <Text style={styles.meta}>{when.format(new Date(item.createdAt))}</Text>
             <View style={styles.actions}>
               <Pressable
@@ -129,6 +131,7 @@ function MyRequests({ companyId, requests }: { companyId: string; requests: Prov
         <View key={r.id} style={styles.card} accessibilityLabel={`Pedido de ${r.categoryName}: ${serviceRequestStatusLabel[r.status]}`}>
           <Text style={styles.title}>{r.categoryName}</Text>
           <Text style={styles.body}>{r.description}</Text>
+          <PhotoStrip uris={r.photos} />
           {r.details ? (
             <>
               <Text style={styles.meta}>

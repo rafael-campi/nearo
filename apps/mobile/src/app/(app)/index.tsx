@@ -12,6 +12,7 @@ import { router, Stack } from 'expo-router';
 import { useEffect } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
 import { ModeSwitch } from '@/components/mode-switch';
+import { PhotoStrip } from '@/components/photo-strip';
 import { ReasonAction } from '@/components/reason-action';
 import { Button, colors, ErrorText } from '@/components/ui';
 import { api } from '@/lib/api';
@@ -164,6 +165,7 @@ function RequestRow({ request }: { request: ServiceRequest }) {
       <Text style={[styles.detail, searching && styles.searching]}>
         {status} · {requestDate.format(new Date(request.createdAt))}
       </Text>
+      <PhotoStrip uris={request.photos} />
       {request.status === 'cancelled' && request.cancellation ? (
         <Text style={styles.detail}>
           Cancelado {request.cancellation.byRole === 'client' ? 'por você' : 'pela empresa'}: {request.cancellation.reason}

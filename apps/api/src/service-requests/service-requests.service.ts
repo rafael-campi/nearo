@@ -26,11 +26,13 @@ import {
   memberships,
   serviceRequestDeclines,
   serviceRequestEvents,
+  serviceRequestPhotos,
   serviceRequests,
   users,
 } from '../db/schema.js';
 import { DATABASE, TenantTransactions, type Database } from '../db/tenant-transactions.js';
 import { ReverseGeocoder } from '../geocoding/reverse-geocoder.js';
+import { PhotosService } from '../photos/photos.service.js';
 import { NotificationsService } from '../notifications/notifications.service.js';
 import { RealtimeService } from '../realtime/realtime.service.js';
 import { TrackingService } from './tracking.service.js';
@@ -54,6 +56,7 @@ export class ServiceRequestsService {
     private readonly realtime: RealtimeService,
     private readonly scheduler: DeadlineScheduler,
     private readonly tracking: TrackingService,
+    private readonly photos: PhotosService,
   ) {}
 
   /** Categorias ativas da empresa, para quem pede ou atende. */
@@ -82,6 +85,7 @@ export class ServiceRequestsService {
       throw new BadRequestException({ message: 'Dados inválidos', issues: [{ path: 'categoryId', message: 'Categoria inválida' }] });
     }
 
+    await this.photos.claim(clientId, body.photoKeys, 'request_photo', 'photoKeys');
     const neighborhood = await this.geocoder.neighborhood(body.location);
     const now = this.clock.now();
     const [created] = await tx
@@ -98,6 +102,11 @@ export class ServiceRequestsService {
         updatedAt: now,
       })
       .returning({ id: serviceRequests.id });
+    if (body.photoKeys.length > 0) {
+      await tx.insert(serviceRequestPhotos).values(
+        body.photoKeys.map((key, position) => ({ companyId: sql`app.current_company_id()`, serviceRequestId: created.id, key, position })),
+      );
+    }
     const [request] = await this.find(eq(serviceRequests.id, created.id));
     await this.dispatch(request, 'created');
     return request;
@@ -183,6 +192,7 @@ export class ServiceRequestsService {
       distanceKm: Math.round((meters.get(r.id) ?? 0) / 100) / 10,
       clientFirstName: r.clientName.split(' ')[0],
       assigned: assigned.has(r.id),
+      photos: r.photos,
       createdAt: r.createdAt,
     }));
   }
@@ -485,6 +495,7 @@ export class ServiceRequestsService {
         ),
       ),
     );
+    const photos = await this.photoUrls(rows.map((r) => r.id));
     return rows.map((r) => ({
       id: r.id,
       companyId: r.companyId,
@@ -493,6 +504,7 @@ export class ServiceRequestsService {
       neighborhood: r.neighborhood,
       clientFirstName: r.clientName.split(' ')[0],
       status: r.status,
+      photos: photos.get(r.id) ?? [],
       details: fullViewStatuses.includes(r.status)
         ? {
             clientName: r.clientName,
@@ -933,8 +945,10 @@ export class ServiceRequestsService {
 
   private async find(where: SQL | undefined): Promise<ServiceRequest[]> {
     const rows = await this.rows(where);
+    const photos = await this.photoUrls(rows.map((r) => r.id));
     return rows.map(({ location, createdAt, clientPhone: _clientPhone, cancelledAt, cancelledByRole, cancelReason, ...row }) => ({
       ...row,
+      photos: photos.get(row.id) ?? [],
       location: { latitude: location.y, longitude: location.x },
       cancellation:
         row.status === 'cancelled' && cancelledAt && cancelledByRole && cancelledByRole !== 'provider'
@@ -942,6 +956,21 @@ export class ServiceRequestsService {
           : null,
       createdAt: createdAt.toISOString(),
     }));
+  }
+
+  /** Links de leitura das fotos de cada pedido, na ordem em que foram anexadas. */
+  private async photoUrls(requestIds: string[]): Promise<Map<string, string[]>> {
+    const result = new Map<string, string[]>();
+    if (requestIds.length === 0) return result;
+    const rows = await this.transactions
+      .current()
+      .select({ serviceRequestId: serviceRequestPhotos.serviceRequestId, key: serviceRequestPhotos.key })
+      .from(serviceRequestPhotos)
+      .where(inArray(serviceRequestPhotos.serviceRequestId, requestIds))
+      .orderBy(asc(serviceRequestPhotos.position));
+    const urls = await this.photos.readUrls(rows.map((r) => r.key));
+    rows.forEach((row, i) => result.set(row.serviceRequestId, [...(result.get(row.serviceRequestId) ?? []), urls[i]]));
+    return result;
   }
 
   private async rows(where: SQL | undefined) {

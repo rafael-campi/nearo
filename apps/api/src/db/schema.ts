@@ -6,6 +6,7 @@ import {
   boolean,
   doublePrecision,
   geometry,
+  integer,
   pgEnum,
   pgTable,
   primaryKey,
@@ -278,6 +279,8 @@ export const messages = pgTable(
     senderRole: messageSenderRole('sender_role').notNull(),
     /** Gerado no app: reenviar a mesma mensagem não a duplica. */
     clientMessageId: uuid('client_message_id').notNull(),
+    /** Chave da foto no storage (uma por mensagem). */
+    photoKey: text('photo_key'),
     /** Ordem da conversa (mensagens no mesmo milissegundo não se embaralham); também é o cursor da paginação. */
     seq: bigint('seq', { mode: 'number' }).generatedAlwaysAsIdentity(),
     body: text('body').notNull(),
@@ -285,3 +288,35 @@ export const messages = pgTable(
   },
   (t) => [unique('messages_idempotency').on(t.serviceRequestId, t.senderId, t.clientMessageId)],
 );
+
+export const photoPurpose = pgEnum('photo_purpose', ['request_photo', 'chat_photo']);
+
+/**
+ * Envios autorizados pela API (URL assinada). A chave só pode ser usada por quem a pediu, uma vez,
+ * e dentro da empresa em que foi emitida.
+ */
+export const uploads = pgTable('uploads', {
+  key: text('key').primaryKey(),
+  companyId: uuid('company_id')
+    .notNull()
+    .references(() => companies.id, { onDelete: 'cascade' }),
+  userId: uuid('user_id')
+    .notNull()
+    .references(() => users.id),
+  purpose: photoPurpose('purpose').notNull(),
+  createdAt: createdAt(),
+  usedAt: timestamp('used_at', { withTimezone: true }),
+});
+
+/** Fotos do pedido (até 5, anexadas na criação). */
+export const serviceRequestPhotos = pgTable('service_request_photos', {
+  id: id(),
+  companyId: uuid('company_id')
+    .notNull()
+    .references(() => companies.id, { onDelete: 'cascade' }),
+  serviceRequestId: uuid('service_request_id')
+    .notNull()
+    .references(() => serviceRequests.id, { onDelete: 'cascade' }),
+  key: text('key').notNull(),
+  position: integer('position').notNull(),
+});

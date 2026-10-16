@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { MAX_REQUEST_PHOTOS } from './photo.js';
 import { coordinatesSchema } from './provider.js';
 
 /** Status do Pedido. Ver "Status do pedido" em GLOSSARY.md. */
@@ -37,6 +38,8 @@ export const createServiceRequestSchema = z.object({
     .max(2000, { error: 'Use no máximo 2000 caracteres' }),
   location: coordinatesSchema,
   addressComplement: z.string().trim().max(200, { error: 'Use no máximo 200 caracteres' }).default(''),
+  /** Chaves devolvidas por `POST /company/uploads` (propósito `request_photo`). */
+  photoKeys: z.array(z.string()).max(MAX_REQUEST_PHOTOS, { error: `Use no máximo ${MAX_REQUEST_PHOTOS} fotos` }).default([]),
 });
 export type CreateServiceRequest = z.input<typeof createServiceRequestSchema>;
 
@@ -61,6 +64,8 @@ export const serviceRequestSchema = z.object({
   neighborhood: z.string().nullable(),
   status: serviceRequestStatusSchema,
   provider: requestProviderSchema.nullable(),
+  /** Links de leitura das fotos do pedido (valem por 1 h). */
+  photos: z.array(z.string()),
   /** Quando o pedido está `cancelled`: quem cancelou e por quê. */
   cancellation: z
     .object({ byRole: z.enum(['client', 'admin', 'system']), reason: z.string(), at: z.iso.datetime() })
@@ -84,6 +89,7 @@ export const openServiceRequestSchema = z.object({
   clientFirstName: z.string(),
   /** Atribuído a este prestador pelo admin (ele aceita ou recusa). */
   assigned: z.boolean(),
+  photos: z.array(z.string()),
   createdAt: z.iso.datetime(),
 });
 export type OpenServiceRequest = z.infer<typeof openServiceRequestSchema>;
@@ -109,6 +115,7 @@ export const providerServiceRequestSchema = z.object({
   neighborhood: z.string().nullable(),
   clientFirstName: z.string(),
   status: serviceRequestStatusSchema,
+  photos: z.array(z.string()),
   details: z
     .object({
       clientName: z.string(),

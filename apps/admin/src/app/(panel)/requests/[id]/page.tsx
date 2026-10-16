@@ -46,6 +46,19 @@ async function Detail({ params }: { params: Promise<{ id: string }> }) {
           {request.clientName} · {request.neighborhood ?? "bairro não identificado"}
           {request.addressComplement ? ` · ${request.addressComplement}` : ""} · {dateFormat.format(new Date(request.createdAt))}
         </p>
+        {request.photos.length > 0 ? (
+          <ul className="mt-3 flex flex-wrap gap-2" aria-label="Fotos do pedido">
+            {request.photos.map((url, i) => (
+              <li key={url}>
+                <a href={url} target="_blank" rel="noreferrer">
+                  {/* Links assinados do storage (válidos por 1 h): sem otimização do next/image. */}
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={url} alt={`Foto ${i + 1} do pedido`} className="h-24 w-24 rounded-lg object-cover" />
+                </a>
+              </li>
+            ))}
+          </ul>
+        ) : null}
         {request.cancellation ? (
           <p className="mt-2 text-sm text-zinc-500">
             Cancelado {{ client: "pelo cliente", admin: "pela empresa", system: "pelo sistema" }[request.cancellation.byRole]}:{" "}
@@ -164,6 +177,12 @@ async function Chat({ requestId }: { requestId: string }) {
           <li key={message.id} className="text-sm">
             <span className="font-medium">{message.senderName}</span>{" "}
             <span className="text-xs text-zinc-400">{dateFormat.format(new Date(message.createdAt))}</span>
+            {message.photoUrl ? (
+              <a href={message.photoUrl} target="_blank" rel="noreferrer">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={message.photoUrl} alt="Foto da mensagem" className="my-1 h-32 w-32 rounded-lg object-cover" />
+              </a>
+            ) : null}
             <p className="whitespace-pre-wrap">{message.body}</p>
           </li>
         ))}

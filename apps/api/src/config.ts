@@ -10,6 +10,11 @@ const configSchema = z.object({
   GEOCODER: z.enum(['nominatim', 'none']).default('nominatim'),
   /** Worker dos prazos do pedido (BullMQ). Os testes o desligam e varrem os prazos vencidos à mão. */
   WORKERS: z.enum(['on', 'off']).default('on'),
+  /** Cloudflare R2 (ADR 0009): fotos do pedido e do chat. Sem isso, a API sobe, mas recusa pedir upload e leitura de fotos. */
+  R2_ACCOUNT_ID: z.string().optional(),
+  R2_ACCESS_KEY_ID: z.string().optional(),
+  R2_SECRET_ACCESS_KEY: z.string().optional(),
+  R2_BUCKET: z.string().optional(),
   /** Origens liberadas por CORS, separadas por vírgula (ex.: Expo web em dev). O app nativo não precisa. */
   CORS_ORIGINS: z
     .string()

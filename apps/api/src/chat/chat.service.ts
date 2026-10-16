@@ -13,6 +13,7 @@ import { and, desc, eq, lt, sql } from 'drizzle-orm';
 import { Clock } from '../clock.js';
 import { memberships, messages, serviceRequests, users } from '../db/schema.js';
 import { TenantTransactions } from '../db/tenant-transactions.js';
+import { PhotosService } from '../photos/photos.service.js';
 import { RealtimeService } from '../realtime/realtime.service.js';
 
 interface Participation {
@@ -29,6 +30,7 @@ const columns = {
   senderRole: messages.senderRole,
   senderName: users.name,
   body: messages.body,
+  photoKey: messages.photoKey,
   createdAt: messages.createdAt,
   seq: messages.seq,
 };
@@ -43,6 +45,7 @@ export class ChatService {
     private readonly transactions: TenantTransactions,
     private readonly realtime: RealtimeService,
     private readonly clock: Clock,
+    private readonly photos: PhotosService,
   ) {}
 
   async send(userId: string, serviceRequestId: string, input: SendMessage): Promise<Message> {
@@ -53,6 +56,23 @@ export class ChatService {
     }
 
     const tx = this.transactions.current();
+    // Uma foto por mensagem. A chave só é consumida se a mensagem for nova (reenvio não gasta de novo).
+    const [existing] = await this.select(
+      and(eq(messages.serviceRequestId, serviceRequestId), eq(messages.senderId, userId), eq(messages.clientMessageId, input.clientMessageId)),
+    );
+    if (existing) return this.toMessage(existing);
+    if (input.photoKey) {
+      try {
+        await this.photos.claim(userId, [input.photoKey], 'chat_photo', 'photoKey');
+      } catch (error) {
+        // Reenvio simultâneo: a primeira cópia já consumiu a chave e gravou a mensagem.
+        const [again] = await this.select(
+          and(eq(messages.serviceRequestId, serviceRequestId), eq(messages.senderId, userId), eq(messages.clientMessageId, input.clientMessageId)),
+        );
+        if (again) return this.toMessage(again);
+        throw error;
+      }
+    }
     const [inserted] = await tx
       .insert(messages)
       .values({
@@ -61,26 +81,23 @@ export class ChatService {
         senderId: userId,
         senderRole: who.role,
         clientMessageId: input.clientMessageId,
-        body: input.body,
+        body: input.body ?? '',
+        photoKey: input.photoKey ?? null,
         createdAt: this.clock.now(),
       })
       .onConflictDoNothing()
       .returning({ id: messages.id });
 
     if (!inserted) {
-      // Reenvio da mesma mensagem: devolve a que já existe, sem gravar nem emitir de novo.
-      const [existing] = await this.select(
-        and(
-          eq(messages.serviceRequestId, serviceRequestId),
-          eq(messages.senderId, userId),
-          eq(messages.clientMessageId, input.clientMessageId),
-        ),
+      // Reenvio simultâneo da mesma mensagem: devolve a que já existe, sem emitir de novo.
+      const [duplicate] = await this.select(
+        and(eq(messages.serviceRequestId, serviceRequestId), eq(messages.senderId, userId), eq(messages.clientMessageId, input.clientMessageId)),
       );
-      return this.toMessage(existing);
+      return this.toMessage(duplicate);
     }
 
     const [row] = await this.select(eq(messages.id, inserted.id));
-    const message = this.toMessage(row);
+    const message = await this.toMessage(row);
     const rooms = [userRoom(who.clientId), ...(who.providerUserId ? [userRoom(who.providerUserId)] : []), serviceRequestRoom(serviceRequestId)];
     this.transactions.afterCommit(() => this.realtime.toRooms(rooms, socketEvents.messageNew, message));
     return message;
@@ -96,7 +113,7 @@ export class ChatService {
     );
     const page = rows.slice(0, MESSAGES_PAGE_SIZE);
     return {
-      messages: page.map((row) => this.toMessage(row)).reverse(),
+      messages: (await Promise.all(page.map((row) => this.toMessage(row)))).reverse(),
       nextCursor: rows.length > MESSAGES_PAGE_SIZE ? String(page[page.length - 1].seq) : null,
     };
   }
@@ -145,7 +162,16 @@ export class ChatService {
     return limit === undefined ? query : query.limit(limit);
   }
 
-  private toMessage(row: { id: string; serviceRequestId: string; clientMessageId: string; senderRole: 'client' | 'provider'; senderName: string; body: string; createdAt: Date }): Message {
+  private async toMessage(row: {
+    id: string;
+    serviceRequestId: string;
+    clientMessageId: string;
+    senderRole: 'client' | 'provider';
+    senderName: string;
+    body: string;
+    photoKey: string | null;
+    createdAt: Date;
+  }): Promise<Message> {
     return {
       id: row.id,
       serviceRequestId: row.serviceRequestId,
@@ -153,6 +179,7 @@ export class ChatService {
       senderRole: row.senderRole,
       senderName: row.senderName,
       body: row.body,
+      photoUrl: row.photoKey ? (await this.photos.readUrls([row.photoKey]))[0] : null,
       createdAt: row.createdAt.toISOString(),
     };
   }

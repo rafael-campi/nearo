@@ -2,16 +2,22 @@ import { chatWritableStatuses, type Message, type MessagePage } from '@despacho/
 import { FlashList } from '@shopify/flash-list';
 import { useInfiniteQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { randomUUID } from 'expo-crypto';
+import { Image } from 'expo-image';
 import { Stack, useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
 import { ActivityIndicator, KeyboardAvoidingView, Platform, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { colors, ErrorText } from '@/components/ui';
+import { pickPhoto, uploadPhoto, type Photo } from '@/lib/photos';
 import { api } from '@/lib/api';
 import { queryKeys } from '@/lib/queries';
 
 interface Pending {
   clientMessageId: string;
   body: string;
+  /** Foto escolhida, ainda não enviada ao storage. */
+  photo?: Photo;
+  /** Chave da foto depois do envio ao storage (reenvio não repete o upload). */
+  photoKey?: string;
   failed: boolean;
 }
 
@@ -36,12 +42,17 @@ export default function ChatScreen() {
   });
 
   const send = useMutation({
-    mutationFn: (item: Pending) =>
-      api<Message>(`/company/service-requests/${id}/messages`, {
+    mutationFn: async (item: Pending) => {
+      // A foto sobe direto ao storage antes da mensagem; a chave fica guardada para o reenvio.
+      if (item.photo && !item.photoKey) {
+        item.photoKey = await uploadPhoto(item.photo, 'chat_photo', companyId);
+      }
+      return api<Message>(`/company/service-requests/${id}/messages`, {
         method: 'POST',
-        body: { clientMessageId: item.clientMessageId, body: item.body },
+        body: { clientMessageId: item.clientMessageId, body: item.body, photoKey: item.photoKey },
         companyId,
-      }),
+      });
+    },
     onSuccess: async (_, item) => {
       await queryClient.invalidateQueries({ queryKey: queryKeys.chat(id) });
       setPending((list) => list.filter((p) => p.clientMessageId !== item.clientMessageId));
@@ -57,12 +68,16 @@ export default function ChatScreen() {
     },
   });
 
+  const [attached, setAttached] = useState<Photo | null>(null);
+  const attach = async () => setAttached((await pickPhoto('library')) ?? attached);
+
   const submit = () => {
     const body = text.trim();
-    if (!body) return;
+    if (!body && !attached) return;
     // O id nasce aqui: reenviar a mesma mensagem não a duplica no servidor.
-    const item = { clientMessageId: randomUUID(), body, failed: false };
+    const item: Pending = { clientMessageId: randomUUID(), body, photo: attached ?? undefined, failed: false };
     setText('');
+    setAttached(null);
     setPending((list) => [...list, item]);
     send.mutate(item);
   };
@@ -101,7 +116,17 @@ export default function ChatScreen() {
             <View style={[styles.bubbleRow, mine ? styles.mineRow : styles.theirsRow]}>
               <View style={[styles.bubble, mine ? styles.mine : styles.theirs]}>
                 {!mine && row.kind === 'message' ? <Text style={styles.sender}>{row.message.senderName}</Text> : null}
-                <Text style={mine ? styles.mineText : styles.text}>{row.kind === 'message' ? row.message.body : row.pending.body}</Text>
+                {(row.kind === 'message' ? row.message.photoUrl : row.pending.photo?.uri) ? (
+                  <Image
+                    source={{ uri: (row.kind === 'message' ? row.message.photoUrl : row.pending.photo?.uri) ?? undefined }}
+                    style={styles.photo}
+                    contentFit="cover"
+                    accessibilityLabel="Foto da mensagem"
+                  />
+                ) : null}
+                {(row.kind === 'message' ? row.message.body : row.pending.body) ? (
+                  <Text style={mine ? styles.mineText : styles.text}>{row.kind === 'message' ? row.message.body : row.pending.body}</Text>
+                ) : null}
                 {row.kind === 'message' ? (
                   <Text style={[styles.time, mine && styles.mineTime]}>{time.format(new Date(row.message.createdAt))}</Text>
                 ) : row.pending.failed ? (
@@ -120,6 +145,9 @@ export default function ChatScreen() {
         <Text style={styles.closed}>A conversa está encerrada. Só leitura.</Text>
       ) : (
         <View style={styles.composer}>
+          <Pressable accessibilityRole="button" accessibilityLabel="Anexar foto" onPress={attach} style={styles.attach}>
+            <Text style={styles.attachText}>{attached ? '✓' : '+'}</Text>
+          </Pressable>
           <TextInput
             accessibilityLabel="Mensagem"
             value={text}
@@ -133,9 +161,9 @@ export default function ChatScreen() {
           <Pressable
             accessibilityRole="button"
             accessibilityLabel="Enviar mensagem"
-            disabled={!text.trim()}
+            disabled={!text.trim() && !attached}
             onPress={submit}
-            style={({ pressed }) => [styles.sendButton, (!text.trim() || pressed) && { opacity: 0.5 }]}
+            style={({ pressed }) => [styles.sendButton, ((!text.trim() && !attached) || pressed) && { opacity: 0.5 }]}
           >
             <Text style={styles.sendText}>Enviar</Text>
           </Pressable>
@@ -174,6 +202,9 @@ const styles = StyleSheet.create({
     color: colors.text,
     backgroundColor: colors.surface,
   },
+  photo: { width: 200, height: 200, borderRadius: 10 },
+  attach: { width: 40, height: 40, borderRadius: 20, borderWidth: 1, borderColor: colors.border, alignItems: 'center', justifyContent: 'center' },
+  attachText: { fontSize: 20, color: colors.text },
   sendButton: { backgroundColor: colors.primary, borderRadius: 18, paddingHorizontal: 16, paddingVertical: 10 },
   sendText: { color: colors.onPrimary, fontWeight: '600' },
 });

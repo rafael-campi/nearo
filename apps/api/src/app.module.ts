@@ -21,10 +21,13 @@ import { MaintenanceService } from './maintenance/maintenance.service.js';
 import { MailModule } from './mail/mailer.js';
 import { NotificationsController } from './notifications/notifications.controller.js';
 import { NotificationsService } from './notifications/notifications.service.js';
+import { PhotosController } from './photos/photos.controller.js';
+import { PhotosService } from './photos/photos.service.js';
 import { RealtimeGateway } from './realtime/realtime.gateway.js';
 import { RealtimeService } from './realtime/realtime.service.js';
 import { ProvidersController } from './providers/providers.controller.js';
 import { ProvidersService } from './providers/providers.service.js';
+import { StorageModule } from './storage/storage.js';
 import { RedisModule } from './redis/redis.module.js';
 import { ServiceRequestsController } from './service-requests/service-requests.controller.js';
 import { ServiceRequestsService } from './service-requests/service-requests.service.js';
@@ -38,8 +41,8 @@ import { TrackingService } from './service-requests/tracking.service.js';
 class ConfigModule {}
 
 @Module({
-  imports: [ConfigModule, ClockModule, DatabaseModule, RedisModule, MailModule, AuthModule, GeocodingModule],
-  controllers: [HealthController, CompanyController, InvitesController, CategoriesController, ClientsController, ProvidersController, ServiceRequestsController, NotificationsController, ChatController],
-  providers: [CompaniesService, InvitesService, CategoriesService, ClientsService, ProvidersService, ServiceRequestsService, NotificationsService, RealtimeService, RealtimeGateway, { provide: DeadlineScheduler, useClass: BullDeadlineScheduler }, DeadlinesService, TrackingService, MaintenanceService, ChatService],
+  imports: [ConfigModule, ClockModule, DatabaseModule, RedisModule, MailModule, AuthModule, GeocodingModule, StorageModule],
+  controllers: [HealthController, CompanyController, InvitesController, CategoriesController, ClientsController, ProvidersController, ServiceRequestsController, NotificationsController, ChatController, PhotosController],
+  providers: [CompaniesService, InvitesService, CategoriesService, ClientsService, ProvidersService, ServiceRequestsService, NotificationsService, RealtimeService, RealtimeGateway, { provide: DeadlineScheduler, useClass: BullDeadlineScheduler }, DeadlinesService, TrackingService, MaintenanceService, ChatService, PhotosService],
 })
 export class AppModule {}

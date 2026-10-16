@@ -5,6 +5,7 @@ import {
   createCategoryRequestSchema,
   updateCategoryRequestSchema,
   type Category,
+  type Client,
   createInviteRequestSchema,
   loginRequestSchema,
   type AcceptInviteResponse,
@@ -108,5 +109,10 @@ export async function renameCategory(id: string, _: FormState, formData: FormDat
 
 export async function setCategoryActive(id: string, active: boolean): Promise<void> {
   await companyApi<Category>(`/company/categories/${id}`, { method: "PATCH", body: { active } });
+  refresh();
+}
+
+export async function setClientActive(membershipId: string, active: boolean): Promise<void> {
+  await companyApi<Client>(`/company/clients/${membershipId}`, { method: "PATCH", body: { active } });
   refresh();
 }

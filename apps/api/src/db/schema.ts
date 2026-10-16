@@ -31,6 +31,8 @@ export const sessions = pgTable('sessions', {
 export const companies = pgTable('companies', {
   id: id(),
   name: text('name').notNull(),
+  /** Código de acesso que a empresa divulga para clientes. */
+  joinCode: text('join_code').notNull().unique(),
   active: boolean('active').notNull().default(true),
   createdAt: createdAt(),
 });

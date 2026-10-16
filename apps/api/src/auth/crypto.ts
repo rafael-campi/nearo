@@ -27,3 +27,11 @@ export function newToken(): string {
 export function hashToken(token: string): string {
   return createHash('sha256').update(token).digest('hex');
 }
+
+// Sem 0/O e 1/I, para ditar o código sem confusão.
+const JOIN_CODE_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+
+/** Código de acesso de empresa: 8 caracteres fáceis de ditar. */
+export function newJoinCode(): string {
+  return Array.from(randomBytes(8), (byte) => JOIN_CODE_ALPHABET[byte % JOIN_CODE_ALPHABET.length]).join('');
+}

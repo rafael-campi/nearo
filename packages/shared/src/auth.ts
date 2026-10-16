@@ -15,6 +15,13 @@ export const loginRequestSchema = z.object({
 });
 export type LoginRequest = z.infer<typeof loginRequestSchema>;
 
+export const signupRequestSchema = z.object({
+  name: z.string().trim().min(1, { error: 'Informe seu nome' }),
+  email: emailSchema,
+  password: passwordSchema,
+});
+export type SignupRequest = z.infer<typeof signupRequestSchema>;
+
 export const sessionResponseSchema = z.object({
   token: z.string(),
 });

@@ -1,5 +1,12 @@
 import { Body, Controller, Get, HttpCode, Post, Req } from '@nestjs/common';
-import { loginRequestSchema, type LoginRequest, type MeResponse, type SessionResponse } from '@despacho/shared';
+import {
+  loginRequestSchema,
+  signupRequestSchema,
+  type LoginRequest,
+  type MeResponse,
+  type SessionResponse,
+  type SignupRequest,
+} from '@despacho/shared';
 import { ZodPipe } from '../common/zod.pipe.js';
 import type { TenantContext } from '../db/tenant-transactions.js';
 import type { AuthenticatedRequest } from './auth.guard.js';
@@ -19,6 +26,12 @@ export class AuthController {
   @HttpCode(200)
   async login(@Body(new ZodPipe(loginRequestSchema)) body: LoginRequest): Promise<SessionResponse> {
     return { token: await this.auth.login(body) };
+  }
+
+  @Public()
+  @Post('auth/signup')
+  async signup(@Body(new ZodPipe(signupRequestSchema)) body: SignupRequest): Promise<SessionResponse> {
+    return { token: await this.auth.signup(body) };
   }
 
   @Post('auth/logout')

@@ -48,3 +48,14 @@ export async function companyWithAdmin(s: Scenario, name: string, adminEmail: st
     .expect(200);
   return { companyId: company.id, token: res.body.token as string };
 }
+
+/** Cliente se cadastra sozinho; devolve o token da sessão. */
+export async function signupClient(s: TestApp, name: string, email: string): Promise<string> {
+  const res = await http(s).post('/auth/signup').send({ name, email, password: 'senha-cliente' }).expect(201);
+  return res.body.token;
+}
+
+export async function joinCodeOf(s: TestApp, admin: { token: string; companyId: string }): Promise<string> {
+  const res = await http(s).get('/company/join-code').set(asUser(admin.token, admin.companyId)).expect(200);
+  return res.body.joinCode;
+}

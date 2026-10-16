@@ -12,6 +12,7 @@ async function bootstrap() {
   const config = loadConfig(process.env);
   const app = await NestFactory.create(AppModule);
   app.enableShutdownHooks();
+  if (config.CORS_ORIGINS.length > 0) app.enableCors({ origin: config.CORS_ORIGINS });
   await app.listen(config.PORT);
 }
 await bootstrap();

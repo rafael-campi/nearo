@@ -36,6 +36,13 @@
       "when": 1792118698850,
       "tag": "0004_categories_rls",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1792119196314,
+      "tag": "0005_company_join_code",
+      "breakpoints": true
     }
   ]
 }

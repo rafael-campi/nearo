@@ -56,6 +56,7 @@ pnpm test:e2e      # API contra Postgres e Redis reais (banco despacho_test; pre
 
 `packages/shared` compila para `dist/`; o turbo o constrói antes dos apps.
 No mobile, adicione dependências com `npx expo install <pacote>` (ver `apps/mobile/AGENTS.md`).
+Mobile: copie `apps/mobile/.env.example` para `.env` e ajuste `EXPO_PUBLIC_API_URL` (emulador Android: `10.0.2.2`; aparelho: IP da máquina). A versão web (`pnpm --filter @despacho/mobile web`) serve para testes automatizados e precisa de `CORS_ORIGINS` na API.
 
 Banco: a API conecta como `despacho_app` (sujeito a RLS); migrations rodam como `despacho` (dono das tabelas).
 Nova tabela de domínio = `company_id` + `enable row level security` (sem `force`: o dono ignora RLS de propósito, para migrations e scripts de plataforma) + policy usando `app.current_company_id()` + teste de isolamento na API (404) e de RLS no Postgres.

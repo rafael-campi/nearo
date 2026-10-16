@@ -39,7 +39,21 @@ Público inclui prestadores com Android de entrada. Meta: abrir < 2 s, listas a 
 
 ## Comandos
 
-<!-- Preencher quando o monorepo existir: install, dev, test, lint, typecheck, db:migrate. -->
+Node 24 (`.nvmrc`) e pnpm via corepack (`corepack enable pnpm`). Rode da raiz:
+
+```bash
+pnpm install
+pnpm infra:up      # Postgres+PostGIS e Redis (infra/docker-compose.yml)
+pnpm dev           # todos os apps; um só: pnpm --filter @despacho/api dev
+pnpm build
+pnpm typecheck
+pnpm lint
+pnpm test
+```
+
+`packages/shared` compila para `dist/`; o turbo o constrói antes dos apps.
+No mobile, adicione dependências com `npx expo install <pacote>` (ver `apps/mobile/AGENTS.md`).
+<!-- Falta: db:migrate (quando o Drizzle entrar). -->
 
 ## Agent skills
 

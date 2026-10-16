@@ -7,6 +7,7 @@ export * from './message.js';
 export * from './notification.js';
 export * from './photo.js';
 export * from './provider.js';
+export * from './push.js';
 export * from './realtime.js';
 export * from './review.js';
 export * from './service-request.js';

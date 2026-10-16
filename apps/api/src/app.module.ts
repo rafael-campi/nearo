@@ -23,6 +23,9 @@ import { NotificationsController } from './notifications/notifications.controlle
 import { NotificationsService } from './notifications/notifications.service.js';
 import { PhotosController } from './photos/photos.controller.js';
 import { PhotosService } from './photos/photos.service.js';
+import { DevicesController } from './push/devices.controller.js';
+import { FcmPushSender, PushSender } from './push/push-sender.js';
+import { PushService } from './push/push.service.js';
 import { RealtimeGateway } from './realtime/realtime.gateway.js';
 import { RealtimeService } from './realtime/realtime.service.js';
 import { ProvidersController } from './providers/providers.controller.js';
@@ -45,7 +48,7 @@ class ConfigModule {}
 
 @Module({
   imports: [ConfigModule, ClockModule, DatabaseModule, RedisModule, MailModule, AuthModule, GeocodingModule, StorageModule],
-  controllers: [HealthController, CompanyController, InvitesController, CategoriesController, ClientsController, ProvidersController, ServiceRequestsController, NotificationsController, ChatController, PhotosController, ReviewsController],
-  providers: [CompaniesService, InvitesService, CategoriesService, ClientsService, ProvidersService, ServiceRequestsService, NotificationsService, RealtimeService, RealtimeGateway, { provide: DeadlineScheduler, useClass: BullDeadlineScheduler }, DeadlinesService, TrackingService, MaintenanceService, ChatService, PhotosService, ReviewsService, RequestAccessService],
+  controllers: [HealthController, CompanyController, InvitesController, CategoriesController, ClientsController, ProvidersController, ServiceRequestsController, NotificationsController, ChatController, PhotosController, ReviewsController, DevicesController],
+  providers: [CompaniesService, InvitesService, CategoriesService, ClientsService, ProvidersService, ServiceRequestsService, NotificationsService, RealtimeService, RealtimeGateway, { provide: DeadlineScheduler, useClass: BullDeadlineScheduler }, DeadlinesService, TrackingService, MaintenanceService, ChatService, PhotosService, ReviewsService, RequestAccessService, PushService, { provide: PushSender, useClass: FcmPushSender }],
 })
 export class AppModule {}

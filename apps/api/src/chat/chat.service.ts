@@ -13,6 +13,7 @@ import { and, desc, eq, lt, sql } from 'drizzle-orm';
 import { Clock } from '../clock.js';
 import { messages, users } from '../db/schema.js';
 import { TenantTransactions } from '../db/tenant-transactions.js';
+import { PushService } from '../push/push.service.js';
 import { RequestAccessService } from '../service-requests/request-access.service.js';
 import { PhotosService } from '../photos/photos.service.js';
 import { RealtimeService } from '../realtime/realtime.service.js';
@@ -41,6 +42,7 @@ export class ChatService {
     private readonly clock: Clock,
     private readonly photos: PhotosService,
     private readonly access: RequestAccessService,
+    private readonly push: PushService,
   ) {}
 
   async send(userId: string, serviceRequestId: string, input: SendMessage): Promise<Message> {
@@ -95,7 +97,25 @@ export class ChatService {
     const message = await this.toMessage(row);
     const rooms = [userRoom(who.clientId), ...(who.providerUserId ? [userRoom(who.providerUserId)] : []), serviceRequestRoom(serviceRequestId)];
     this.transactions.afterCommit(() => this.realtime.toRooms(rooms, socketEvents.messageNew, message));
+    // Mensagem nova vira push para o outro lado (não vira "atualização": o chat tem a própria tela).
+    const recipient = who.role === 'client' ? who.providerUserId : who.clientId;
+    if (recipient) {
+      const companyId = await this.companyId();
+      this.transactions.afterCommit(() =>
+        this.push.enqueue({
+          userId: recipient,
+          title: message.senderName.split(' ')[0],
+          body: message.body || '📷 Foto',
+          data: { type: 'new_message', serviceRequestId, companyId },
+        }),
+      );
+    }
     return message;
+  }
+
+  private async companyId(): Promise<string> {
+    const { rows } = await this.transactions.current().execute<{ id: string }>(sql`select app.current_company_id() as id`);
+    return rows[0].id;
   }
 
   /** Mensagens em ordem cronológica, as mais recentes primeiro por página; `cursor` leva às mais antigas. */

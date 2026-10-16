@@ -5,6 +5,7 @@ import { and, desc, eq, isNull, sql } from 'drizzle-orm';
 import { Clock } from '../clock.js';
 import { companies, notifications } from '../db/schema.js';
 import { TenantTransactions } from '../db/tenant-transactions.js';
+import { PushService } from '../push/push.service.js';
 import { RealtimeService } from '../realtime/realtime.service.js';
 
 export interface NotifyInput {
@@ -34,6 +35,7 @@ export class NotificationsService {
     private readonly transactions: TenantTransactions,
     private readonly realtime: RealtimeService,
     private readonly clock: Clock,
+    private readonly push: PushService,
   ) {}
 
   async notify(input: NotifyInput): Promise<void> {
@@ -70,6 +72,17 @@ export class NotificationsService {
           createdAt: row.createdAt.toISOString(),
         };
         this.realtime.toUser(row.userId, socketEvents.notification, event);
+      }
+    });
+    // Toda atualização vira push; o worker envia aos aparelhos da pessoa.
+    this.transactions.afterCommit(async () => {
+      for (const row of rows) {
+        await this.push.enqueue({
+          userId: row.userId,
+          title: input.title,
+          body: input.body,
+          data: { type: input.type, serviceRequestId: input.serviceRequestId, companyId: company.id },
+        });
       }
     });
   }

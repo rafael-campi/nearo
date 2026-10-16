@@ -15,6 +15,8 @@ const configSchema = z.object({
   R2_ACCESS_KEY_ID: z.string().optional(),
   R2_SECRET_ACCESS_KEY: z.string().optional(),
   R2_BUCKET: z.string().optional(),
+  /** Conta de serviço do Firebase (JSON) para enviar push via FCM. Sem isso, a API sobe e ignora o push. */
+  FCM_SERVICE_ACCOUNT_JSON: z.string().optional(),
   /** Origens liberadas por CORS, separadas por vírgula (ex.: Expo web em dev). O app nativo não precisa. */
   CORS_ORIGINS: z
     .string()

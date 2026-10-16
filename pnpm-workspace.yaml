@@ -24,5 +24,7 @@ minimumReleaseAgeExclude:
 allowBuilds:
   esbuild: true
   msgpackr-extract: false
+  '@firebase/util': false
+  protobufjs: false
   sharp: false
   unrs-resolver: false

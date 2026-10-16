@@ -5,10 +5,12 @@ import { Clock } from '../../src/clock.js';
 import { APP_CONFIG, loadConfig } from '../../src/config.js';
 import { ReverseGeocoder } from '../../src/geocoding/reverse-geocoder.js';
 import { Mailer } from '../../src/mail/mailer.js';
+import { PushSender } from '../../src/push/push-sender.js';
 import { Storage } from '../../src/storage/storage.js';
 import { FakeClock } from './fake-clock.js';
 import { FakeGeocoder } from './fake-geocoder.js';
 import { FakeMailer } from './fake-mailer.js';
+import { FakePushSender } from './fake-push.js';
 import { FakeStorage } from './fake-storage.js';
 
 export interface TestApp {
@@ -17,6 +19,7 @@ export interface TestApp {
   mailer: FakeMailer;
   geocoder: FakeGeocoder;
   storage: FakeStorage;
+  push: FakePushSender;
 }
 
 export interface TestAppOptions extends ModuleMetadata {
@@ -26,11 +29,12 @@ export interface TestAppOptions extends ModuleMetadata {
   mailer?: FakeMailer;
   geocoder?: FakeGeocoder;
   storage?: FakeStorage;
+  push?: FakePushSender;
 }
 
 /** Sobe a API inteira com relógio e e-mail falsos. Aceita controllers/providers só de teste. */
 export async function createTestApp(options: TestAppOptions = {}): Promise<TestApp> {
-  const { databaseUrl, clock = new FakeClock(), mailer = new FakeMailer(), geocoder = new FakeGeocoder(), storage = new FakeStorage(), ...extra } = options;
+  const { databaseUrl, clock = new FakeClock(), mailer = new FakeMailer(), geocoder = new FakeGeocoder(), storage = new FakeStorage(), push = new FakePushSender(), ...extra } = options;
   const config = loadConfig(process.env);
   const moduleRef = await Test.createTestingModule({ imports: [AppModule], ...extra })
     .overrideProvider(Clock)
@@ -39,6 +43,8 @@ export async function createTestApp(options: TestAppOptions = {}): Promise<TestA
     .useValue(mailer)
     .overrideProvider(Storage)
     .useValue(storage)
+    .overrideProvider(PushSender)
+    .useValue(push)
     .overrideProvider(ReverseGeocoder)
     .useValue(geocoder)
     .overrideProvider(APP_CONFIG)
@@ -46,5 +52,5 @@ export async function createTestApp(options: TestAppOptions = {}): Promise<TestA
     .compile();
   const app = moduleRef.createNestApplication();
   await app.init();
-  return { app, clock, mailer, geocoder, storage };
+  return { app, clock, mailer, geocoder, storage, push };
 }

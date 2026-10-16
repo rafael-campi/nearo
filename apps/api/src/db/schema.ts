@@ -349,3 +349,19 @@ export const reviews = pgTable(
   },
   (t) => [unique('reviews_one_per_side').on(t.serviceRequestId, t.reviewerId)],
 );
+
+export const devicePlatform = pgEnum('device_platform', ['android', 'ios']);
+
+/**
+ * Token de push do aparelho (FCM). É da pessoa, não de uma empresa (como `sessions`): vale em todas as
+ * empresas dela. O RLS deixa cada um mexer só nos próprios; o worker lê por função de plataforma.
+ */
+export const deviceTokens = pgTable('device_tokens', {
+  token: text('token').primaryKey(),
+  userId: uuid('user_id')
+    .notNull()
+    .references(() => users.id, { onDelete: 'cascade' }),
+  platform: devicePlatform('platform').notNull(),
+  createdAt: createdAt(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+});

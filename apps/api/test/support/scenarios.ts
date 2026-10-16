@@ -22,6 +22,7 @@ export async function createScenario(): Promise<Scenario> {
     mailer: api.mailer,
     geocoder: api.geocoder,
     storage: api.storage,
+    push: api.push,
   });
   return {
     ...api,

@@ -1,8 +1,10 @@
 import { Stack } from 'expo-router';
+import { usePushRegistration } from '@/lib/push';
 import { useRealtime } from '@/lib/realtime';
 
 export default function AppLayout() {
   useRealtime();
+  usePushRegistration();
   return (
     <Stack>
       <Stack.Screen name="index" />

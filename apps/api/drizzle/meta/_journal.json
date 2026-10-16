@@ -22,6 +22,20 @@
       "when": 1792118016726,
       "tag": "0002_companies_users_invites_rls",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1792118698025,
+      "tag": "0003_categories",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1792118698850,
+      "tag": "0004_categories_rls",
+      "breakpoints": true
     }
   ]
 }

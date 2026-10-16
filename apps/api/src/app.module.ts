@@ -1,5 +1,7 @@
 import { Global, Module } from '@nestjs/common';
 import { AuthModule } from './auth/auth.module.js';
+import { CategoriesController } from './categories/categories.controller.js';
+import { CategoriesService } from './categories/categories.service.js';
 import { ClockModule } from './clock.js';
 import { CompaniesService } from './companies/companies.service.js';
 import { CompanyController } from './companies/company.controller.js';
@@ -20,7 +22,7 @@ class ConfigModule {}
 
 @Module({
   imports: [ConfigModule, ClockModule, DatabaseModule, RedisModule, MailModule, AuthModule],
-  controllers: [HealthController, CompanyController, InvitesController],
-  providers: [CompaniesService, InvitesService],
+  controllers: [HealthController, CompanyController, InvitesController, CategoriesController],
+  providers: [CompaniesService, InvitesService, CategoriesService],
 })
 export class AppModule {}

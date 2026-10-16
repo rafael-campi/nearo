@@ -2,7 +2,7 @@
 
 import { useActionState } from "react";
 import { Field, FormMessage, SubmitButton, type FormState } from "@/components/form";
-import { inviteAdmin } from "./actions";
+import { inviteAdmin } from "../../actions";
 
 export function InviteAdminForm() {
   const [state, action, pending] = useActionState(inviteAdmin, {} as FormState);

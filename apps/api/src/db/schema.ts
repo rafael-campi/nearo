@@ -1,6 +1,7 @@
 // Tabelas do domínio (Drizzle). Toda tabela de domínio tem company_id e policy de RLS (ADR 0001);
 // as policies ficam em migrations SQL manuais.
-import { boolean, pgEnum, pgTable, text, timestamp, unique, uuid } from 'drizzle-orm/pg-core';
+import { sql } from 'drizzle-orm';
+import { boolean, pgEnum, pgTable, text, timestamp, unique, uniqueIndex, uuid } from 'drizzle-orm/pg-core';
 
 const id = () => uuid('id').primaryKey().defaultRandom();
 const createdAt = () => timestamp('created_at', { withTimezone: true }).notNull().defaultNow();
@@ -64,3 +65,18 @@ export const invites = pgTable('invites', {
   invitedBy: uuid('invited_by').references(() => users.id, { onDelete: 'set null' }),
   createdAt: createdAt(),
 });
+
+export const categories = pgTable(
+  'categories',
+  {
+    id: id(),
+    companyId: uuid('company_id')
+      .notNull()
+      .references(() => companies.id, { onDelete: 'cascade' }),
+    name: text('name').notNull(),
+    active: boolean('active').notNull().default(true),
+    createdAt: createdAt(),
+  },
+  // Nome único por empresa, sem diferenciar maiúsculas.
+  (t) => [uniqueIndex('categories_company_name_unique').on(t.companyId, sql`lower(${t.name})`)],
+);

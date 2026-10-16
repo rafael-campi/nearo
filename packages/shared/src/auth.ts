@@ -46,3 +46,13 @@ export type MeResponse = z.infer<typeof meResponseSchema>;
 /** Exclusão da própria conta: pede a senha para confirmar. */
 export const deleteAccountRequestSchema = z.object({ password: z.string().min(1, { error: 'Informe sua senha' }) });
 export type DeleteAccountRequest = z.infer<typeof deleteAccountRequestSchema>;
+
+/** Pedido de recuperação de senha: a resposta é a mesma exista ou não a conta (não revela o e-mail). */
+export const forgotPasswordRequestSchema = z.object({ email: emailSchema });
+export type ForgotPasswordRequest = z.infer<typeof forgotPasswordRequestSchema>;
+
+export const resetPasswordRequestSchema = z.object({
+  token: z.string().min(1),
+  password: passwordSchema,
+});
+export type ResetPasswordRequest = z.infer<typeof resetPasswordRequestSchema>;

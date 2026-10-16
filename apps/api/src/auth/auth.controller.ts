@@ -1,11 +1,15 @@
 import { Body, Controller, Delete, Get, HttpCode, Post, Req } from '@nestjs/common';
 import {
   deleteAccountRequestSchema,
+  forgotPasswordRequestSchema,
   loginRequestSchema,
+  resetPasswordRequestSchema,
   signupRequestSchema,
   type DeleteAccountRequest,
+  type ForgotPasswordRequest,
   type LoginRequest,
   type MeResponse,
+  type ResetPasswordRequest,
   type SessionResponse,
   type SignupRequest,
 } from '@despacho/shared';
@@ -14,6 +18,7 @@ import type { TenantContext } from '../db/tenant-transactions.js';
 import type { AuthenticatedRequest } from './auth.guard.js';
 import { AccountService } from './account.service.js';
 import { AuthService } from './auth.service.js';
+import { PasswordResetService } from './password-reset.service.js';
 import { Public, Tenant } from './decorators.js';
 import { SessionsService } from './sessions.service.js';
 
@@ -23,6 +28,7 @@ export class AuthController {
     private readonly auth: AuthService,
     private readonly sessions: SessionsService,
     private readonly account: AccountService,
+    private readonly passwordReset: PasswordResetService,
   ) {}
 
   @Public()
@@ -36,6 +42,21 @@ export class AuthController {
   @Post('auth/signup')
   async signup(@Body(new ZodPipe(signupRequestSchema)) body: SignupRequest): Promise<SessionResponse> {
     return { token: await this.auth.signup(body) };
+  }
+
+  /** Sempre 204, exista ou não a conta: o pedido não revela quais e-mails estão cadastrados. */
+  @Public()
+  @Post('auth/forgot-password')
+  @HttpCode(204)
+  async forgotPassword(@Body(new ZodPipe(forgotPasswordRequestSchema)) body: ForgotPasswordRequest): Promise<void> {
+    await this.passwordReset.request(body.email);
+  }
+
+  @Public()
+  @Post('auth/reset-password')
+  @HttpCode(204)
+  async resetPassword(@Body(new ZodPipe(resetPasswordRequestSchema)) body: ResetPasswordRequest): Promise<void> {
+    await this.passwordReset.reset(body.token, body.password);
   }
 
   @Post('auth/logout')

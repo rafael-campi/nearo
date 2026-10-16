@@ -32,6 +32,7 @@ export default function RootLayout() {
           <Stack.Screen name="(auth)" />
         </Stack.Protected>
         <Stack.Screen name="join/[code]" />
+        <Stack.Screen name="reset-password/[token]" />
       </Stack>
     </QueryClientProvider>
   );

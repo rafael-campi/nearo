@@ -48,6 +48,19 @@ export const sessions = pgTable('sessions', {
 
 export const assignmentMode = pgEnum('assignment_mode', ['manual', 'broadcast']);
 
+/** Pedidos de recuperação de senha. Identidade global, sem RLS (como `sessions`): só a autenticação acessa. */
+export const passwordResets = pgTable('password_resets', {
+  id: id(),
+  userId: uuid('user_id')
+    .notNull()
+    .references(() => users.id, { onDelete: 'cascade' }),
+  /** Hash do token enviado por e-mail; o token em si nunca é gravado. */
+  tokenHash: text('token_hash').notNull().unique(),
+  expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
+  usedAt: timestamp('used_at', { withTimezone: true }),
+  createdAt: createdAt(),
+});
+
 export const companies = pgTable('companies', {
   id: id(),
   name: text('name').notNull(),

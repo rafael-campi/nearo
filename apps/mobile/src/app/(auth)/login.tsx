@@ -33,6 +33,9 @@ export default function LoginScreen() {
       <Field label="Senha" value={password} onChangeText={setPassword} secureTextEntry autoComplete="current-password" onSubmitEditing={submit} />
       <ErrorText>{error}</ErrorText>
       <Button onPress={submit} loading={login.isPending}>Entrar</Button>
+      <Link href="/forgot-password" style={{ textAlign: 'center', paddingVertical: 6, textDecorationLine: 'underline' }}>
+        Esqueci minha senha
+      </Link>
       <Link href="/signup" replace style={{ textAlign: 'center', paddingVertical: 10, textDecorationLine: 'underline' }}>
         Criar conta
       </Link>

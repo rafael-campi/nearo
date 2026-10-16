@@ -7,6 +7,8 @@ import {
   type Category,
   type Client,
   createInviteRequestSchema,
+  forgotPasswordRequestSchema,
+  resetPasswordRequestSchema,
   loginRequestSchema,
   type AcceptInviteResponse,
   type Company,
@@ -176,4 +178,23 @@ export async function cancelRequest(requestId: string, _: FormState, formData: F
   if (!res.ok) return { message: errorMessage(res.data, "Não foi possível cancelar") };
   refresh();
   return { success: true, message: "Pedido cancelado" };
+}
+
+export async function forgotPassword(_: FormState, formData: FormData): Promise<FormState> {
+  const values = keepValues(formData, "email");
+  const input = forgotPasswordRequestSchema.safeParse({ email: formData.get("email") });
+  if (!input.success) return { message: input.error.issues[0].message, values };
+  const res = await api("/auth/forgot-password", { method: "POST", body: input.data });
+  if (!res.ok) return { message: errorMessage(res.data, "Não foi possível enviar o link"), values };
+  // A mesma resposta exista ou não a conta: o painel também não revela quais e-mails estão cadastrados.
+  return { success: true, message: "Se o e-mail estiver cadastrado, enviamos um link para redefinir a senha. Ele vale por 1 hora." };
+}
+
+export async function resetPassword(token: string, _: FormState, formData: FormData): Promise<FormState> {
+  const input = resetPasswordRequestSchema.safeParse({ token, password: formData.get("password") });
+  if (!input.success) return { message: input.error.issues[0].message };
+  if (formData.get("confirm") !== input.data.password) return { message: "As senhas não conferem" };
+  const res = await api("/auth/reset-password", { method: "POST", body: input.data });
+  if (!res.ok) return { message: errorMessage(res.data, "Não foi possível redefinir a senha") };
+  return { success: true, message: "Senha redefinida! Você já pode entrar com a senha nova." };
 }

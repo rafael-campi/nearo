@@ -150,3 +150,11 @@ export const nextServiceStep: Partial<Record<ServiceRequestStatus, { to: Service
   arrived: { to: 'in_progress', label: 'Iniciar serviço' },
   in_progress: { to: 'completed', label: 'Concluir serviço' },
 };
+
+/** Distância (m) em que o cliente é avisado de que o prestador está chegando (glossário: Raio de aviso). */
+export const PROXIMITY_RADIUS_M = 500;
+/** Intervalo (ms) com que o app do prestador envia a posição enquanto o pedido está a caminho. */
+export const GPS_INTERVAL_MS = 10_000;
+
+export const sendLocationSchema = coordinatesSchema;
+export type SendLocation = z.infer<typeof sendLocationSchema>;

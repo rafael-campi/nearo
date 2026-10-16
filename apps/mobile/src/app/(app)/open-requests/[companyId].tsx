@@ -2,10 +2,12 @@ import { nextServiceStep, serviceRequestStatusLabel, type OpenServiceRequest, ty
 import { FlashList } from '@shopify/flash-list';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Stack, useLocalSearchParams } from 'expo-router';
+import { useEffect } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
 import { colors, ErrorText } from '@/components/ui';
 import { api } from '@/lib/api';
 import { queryKeys } from '@/lib/queries';
+import { startTracking, stopTracking, trackedTarget } from '@/lib/tracking';
 
 const when = new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
 
@@ -88,8 +90,26 @@ function MyRequests({ companyId, requests }: { companyId: string; requests: Prov
   const advance = useMutation({
     mutationFn: ({ id, status }: { id: string; status: string }) =>
       api(`/company/service-requests/${id}/status`, { method: 'POST', body: { status }, companyId }),
+    onSuccess: (_, { id, status }) => {
+      // A posição só é enviada enquanto o pedido está a caminho.
+      if (status === 'en_route') void startTracking({ serviceRequestId: id, companyId });
+      else void stopTracking();
+    },
     onSettled: () => queryClient.invalidateQueries({ queryKey: queryKeys.providerRequests(companyId) }),
   });
+
+  // Garante o envio se o app foi reaberto com um pedido a caminho, e para se o pedido já não está.
+  const enRouteId = requests.find((r) => r.status === 'en_route')?.id;
+  useEffect(() => {
+    void (async () => {
+      const tracked = await trackedTarget();
+      if (enRouteId) {
+        if (tracked?.serviceRequestId !== enRouteId) await startTracking({ serviceRequestId: enRouteId, companyId });
+      } else if (tracked?.companyId === companyId) {
+        await stopTracking();
+      }
+    })();
+  }, [enRouteId, companyId]);
   if (requests.length === 0) return null;
   return (
     <View>

@@ -22,6 +22,7 @@ import { DATABASE, TenantTransactions, type Database } from '../db/tenant-transa
 import { ReverseGeocoder } from '../geocoding/reverse-geocoder.js';
 import { NotificationsService } from '../notifications/notifications.service.js';
 import { RealtimeService } from '../realtime/realtime.service.js';
+import { TrackingService } from './tracking.service.js';
 import { eligiblePairs, type EligiblePair } from './eligibility.js';
 import type { CreateServiceRequestInput } from './service-requests.controller.js';
 
@@ -41,6 +42,7 @@ export class ServiceRequestsService {
     private readonly notifications: NotificationsService,
     private readonly realtime: RealtimeService,
     private readonly scheduler: DeadlineScheduler,
+    private readonly tracking: TrackingService,
   ) {}
 
   /** Categorias ativas da empresa, para quem pede ou atende. */
@@ -450,6 +452,8 @@ export class ServiceRequestsService {
       body: request.categoryName,
       serviceRequestId,
     });
+    // Ao chegar, a posição deixa de ser exposta.
+    if (to !== 'en_route') this.transactions.afterCommit(() => this.tracking.clear(serviceRequestId));
     this.announceStatus(request, [locked.clientId, userId]);
     return { id: serviceRequestId, status: request.status };
   }

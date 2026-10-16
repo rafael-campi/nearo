@@ -2,6 +2,7 @@ import { QueryClientProvider } from '@tanstack/react-query';
 import { SplashScreen, Stack } from 'expo-router';
 import { useEffect } from 'react';
 import { queryClient } from '@/lib/query';
+import '@/lib/tracking'; // registra a tarefa de GPS em segundo plano
 import { useSession } from '@/lib/session';
 
 SplashScreen.preventAutoHideAsync();

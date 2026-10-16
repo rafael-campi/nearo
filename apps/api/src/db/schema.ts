@@ -171,6 +171,8 @@ export const serviceRequests = pgTable('service_requests', {
   arrivedAt: timestamp('arrived_at', { withTimezone: true }),
   startedAt: timestamp('started_at', { withTimezone: true }),
   completedAt: timestamp('completed_at', { withTimezone: true }),
+  /** Quando o cliente foi avisado do raio de aviso; só uma vez por pedido. */
+  proximityNotifiedAt: timestamp('proximity_notified_at', { withTimezone: true }),
   /** Os prestadores aptos veem e aceitam o pedido aberto (modo da empresa quando ele foi criado ou reaberto). */
   broadcast: boolean('broadcast').notNull().default(true),
   /** Desde quando o pedido está aberto (criação ou última volta para aberto); marca o prazo de 15 min. */
@@ -200,7 +202,7 @@ export const serviceRequestDeclines = pgTable(
   (t) => [primaryKey({ columns: [t.serviceRequestId, t.providerMembershipId] })],
 );
 
-export const notificationType = pgEnum('notification_type', ['new_request', 'request_accepted', 'request_confirmed', 'request_declined', 'request_needs_assignment', 'request_assigned', 'request_unclaimed', 'request_reminder', 'request_expired', 'request_status']);
+export const notificationType = pgEnum('notification_type', ['new_request', 'request_accepted', 'request_confirmed', 'request_declined', 'request_needs_assignment', 'request_assigned', 'request_unclaimed', 'request_reminder', 'request_expired', 'request_status', 'provider_nearby']);
 
 /** Atualização gravada para um usuário; o socket (e, depois, o push) a entrega. */
 export const notifications = pgTable('notifications', {
@@ -217,4 +219,17 @@ export const notifications = pgTable('notifications', {
   serviceRequestId: uuid('service_request_id').references(() => serviceRequests.id, { onDelete: 'cascade' }),
   readAt: timestamp('read_at', { withTimezone: true }),
   createdAt: createdAt(),
+});
+
+/** Trilha do prestador a caminho: um ponto a cada ~30 s, mantida por 30 dias. A última posição fica no Redis. */
+export const providerPositions = pgTable('provider_positions', {
+  id: id(),
+  companyId: uuid('company_id')
+    .notNull()
+    .references(() => companies.id, { onDelete: 'cascade' }),
+  serviceRequestId: uuid('service_request_id')
+    .notNull()
+    .references(() => serviceRequests.id, { onDelete: 'cascade' }),
+  location: geometry('location', { type: 'point', mode: 'xy', srid: 4326 }).notNull(),
+  recordedAt: timestamp('recorded_at', { withTimezone: true }).notNull(),
 });

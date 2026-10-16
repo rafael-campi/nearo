@@ -13,6 +13,8 @@ export const socketEvents = {
   serviceRequestUpdated: 'service_request:updated',
   /** Servidor → prestador: a lista de pedidos abertos de uma empresa mudou. */
   openRequestsChanged: 'open_requests:changed',
+  /** Servidor → cliente: nova posição do prestador a caminho. */
+  serviceRequestLocation: 'service_request:location',
   /** App → servidor: acompanhar um pedido (entra na sala dele, se tiver acesso). */
   subscribeServiceRequest: 'service_request:subscribe',
 } as const;
@@ -34,3 +36,14 @@ export type OpenRequestsChangedEvent = z.infer<typeof openRequestsChangedEventSc
 
 export const subscribeServiceRequestSchema = z.object({ serviceRequestId: z.uuid() });
 export type SubscribeServiceRequest = z.infer<typeof subscribeServiceRequestSchema>;
+
+export const providerLocationSchema = z.object({
+  latitude: z.number().min(-90).max(90),
+  longitude: z.number().min(-180).max(180),
+  /** Quando a API recebeu a posição. */
+  at: z.iso.datetime(),
+});
+export type ProviderLocation = z.infer<typeof providerLocationSchema>;
+
+export const serviceRequestLocationEventSchema = providerLocationSchema.extend({ id: z.uuid() });
+export type ServiceRequestLocationEvent = z.infer<typeof serviceRequestLocationEventSchema>;

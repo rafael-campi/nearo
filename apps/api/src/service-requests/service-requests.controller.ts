@@ -1,10 +1,13 @@
 import { Body, Controller, Get, HttpCode, Param, ParseUUIDPipe, Post } from '@nestjs/common';
 import {
   advanceServiceRequestSchema,
+  sendLocationSchema,
   assignServiceRequestSchema,
   createServiceRequestSchema,
   type AcceptServiceRequestResponse,
   type AdvanceServiceRequest,
+  type ProviderLocation,
+  type SendLocation,
   type AssignServiceRequest,
   type CategoryOption,
   type EligibleProvider,
@@ -19,12 +22,16 @@ import { CompanyRoles, Tenant } from '../auth/decorators.js';
 import { ZodPipe } from '../common/zod.pipe.js';
 import type { TenantContext } from '../db/tenant-transactions.js';
 import { ServiceRequestsService } from './service-requests.service.js';
+import { TrackingService } from './tracking.service.js';
 
 export type CreateServiceRequestInput = z.output<typeof createServiceRequestSchema>;
 
 @Controller()
 export class ServiceRequestsController {
-  constructor(private readonly requests: ServiceRequestsService) {}
+  constructor(
+    private readonly requests: ServiceRequestsService,
+    private readonly tracking: TrackingService,
+  ) {}
 
   @CompanyRoles('admin', 'client', 'provider')
   @Get('company/category-options')
@@ -116,6 +123,26 @@ export class ServiceRequestsController {
     @Body(new ZodPipe(advanceServiceRequestSchema)) body: AdvanceServiceRequest,
   ): Promise<AcceptServiceRequestResponse> {
     return this.requests.advance(tenant.userId, id, body.status);
+  }
+
+  @CompanyRoles('provider')
+  @Post('company/service-requests/:id/location')
+  @HttpCode(204)
+  async sendLocation(
+    @Tenant() tenant: TenantContext,
+    @Param('id', new ParseUUIDPipe({ errorHttpStatusCode: 404 })) id: string,
+    @Body(new ZodPipe(sendLocationSchema)) body: SendLocation,
+  ): Promise<void> {
+    await this.tracking.report(tenant.userId, id, body);
+  }
+
+  @CompanyRoles('client')
+  @Get('company/service-requests/:id/location')
+  location(
+    @Tenant() tenant: TenantContext,
+    @Param('id', new ParseUUIDPipe({ errorHttpStatusCode: 404 })) id: string,
+  ): Promise<ProviderLocation | null> {
+    return this.tracking.lastFor(tenant.userId, id);
   }
 
   @CompanyRoles('client')

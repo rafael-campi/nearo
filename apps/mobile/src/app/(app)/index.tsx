@@ -162,6 +162,16 @@ function RequestRow({ request }: { request: ServiceRequest }) {
           {provider.phone ? ` · ${formatPhone(provider.phone)}` : ''}
         </Text>
       ) : null}
+      {request.status === 'en_route' ? (
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Acompanhar prestador no mapa"
+          onPress={() => router.push({ pathname: '/request/[id]', params: { id: request.id, companyId: request.companyId } })}
+          style={({ pressed }) => [styles.action, styles.actionPrimary, { marginTop: 8 }, pressed && { opacity: 0.7 }]}
+        >
+          <Text style={styles.actionPrimaryText}>Acompanhar no mapa</Text>
+        </Pressable>
+      ) : null}
       {request.status === 'awaiting_client' ? (
         <>
           <Text style={styles.searching}>{provider?.name.split(' ')[0] ?? 'Um prestador'} aceitou. Confirma?</Text>

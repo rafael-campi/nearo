@@ -11,6 +11,12 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
       {
         locationWhenInUsePermission:
           'O Despacho usa sua localização para marcar o ponto de onde você sai para atender.',
+        // Prestador a caminho: a posição segue sendo enviada com o app em segundo plano (serviço em primeiro plano no Android).
+        locationAlwaysAndWhenInUsePermission:
+          'O Despacho usa sua localização em segundo plano para o cliente acompanhar você a caminho do atendimento.',
+        isAndroidBackgroundLocationEnabled: true,
+        isAndroidForegroundServiceEnabled: true,
+        isIosBackgroundLocationEnabled: true,
       },
     ],
     ['react-native-maps', { androidGoogleMapsApiKey: process.env.GOOGLE_MAPS_ANDROID_API_KEY }],

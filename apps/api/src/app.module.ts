@@ -15,6 +15,7 @@ import { GeocodingModule } from './geocoding/reverse-geocoder.js';
 import { HealthController } from './health/health.controller.js';
 import { InvitesController } from './invites/invites.controller.js';
 import { InvitesService } from './invites/invites.service.js';
+import { MaintenanceService } from './maintenance/maintenance.service.js';
 import { MailModule } from './mail/mailer.js';
 import { NotificationsController } from './notifications/notifications.controller.js';
 import { NotificationsService } from './notifications/notifications.service.js';
@@ -25,6 +26,7 @@ import { ProvidersService } from './providers/providers.service.js';
 import { RedisModule } from './redis/redis.module.js';
 import { ServiceRequestsController } from './service-requests/service-requests.controller.js';
 import { ServiceRequestsService } from './service-requests/service-requests.service.js';
+import { TrackingService } from './service-requests/tracking.service.js';
 
 @Global()
 @Module({
@@ -36,6 +38,6 @@ class ConfigModule {}
 @Module({
   imports: [ConfigModule, ClockModule, DatabaseModule, RedisModule, MailModule, AuthModule, GeocodingModule],
   controllers: [HealthController, CompanyController, InvitesController, CategoriesController, ClientsController, ProvidersController, ServiceRequestsController, NotificationsController],
-  providers: [CompaniesService, InvitesService, CategoriesService, ClientsService, ProvidersService, ServiceRequestsService, NotificationsService, RealtimeService, RealtimeGateway, { provide: DeadlineScheduler, useClass: BullDeadlineScheduler }, DeadlinesService],
+  providers: [CompaniesService, InvitesService, CategoriesService, ClientsService, ProvidersService, ServiceRequestsService, NotificationsService, RealtimeService, RealtimeGateway, { provide: DeadlineScheduler, useClass: BullDeadlineScheduler }, DeadlinesService, TrackingService, MaintenanceService],
 })
 export class AppModule {}

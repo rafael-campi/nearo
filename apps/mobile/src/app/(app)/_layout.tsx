@@ -10,6 +10,7 @@ export default function AppLayout() {
       <Stack.Screen name="provider/[companyId]" options={{ title: 'Minha atuação' }} />
       <Stack.Screen name="request/new" options={{ title: 'Novo pedido' }} />
       <Stack.Screen name="open-requests/[companyId]" options={{ title: 'Pedidos abertos' }} />
+      <Stack.Screen name="request/[id]" options={{ title: 'Acompanhar' }} />
       <Stack.Screen name="notifications" options={{ title: 'Atualizações' }} />
     </Stack>
   );

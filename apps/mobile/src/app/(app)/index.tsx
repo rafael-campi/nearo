@@ -1,6 +1,7 @@
 import {
   clientCancellableStatuses,
   fullViewStatuses,
+  ratingLabel,
   serviceRequestStatusLabel,
   type MeResponse,
   type ProviderProfile,
@@ -173,7 +174,7 @@ function RequestRow({ request }: { request: ServiceRequest }) {
       ) : null}
       {provider ? (
         <Text style={styles.provider}>
-          {provider.name} · {provider.completedCount} {provider.completedCount === 1 ? 'pedido concluído' : 'pedidos concluídos'}
+          {provider.name} · {ratingLabel(provider.rating)} · {provider.completedCount} {provider.completedCount === 1 ? 'pedido concluído' : 'pedidos concluídos'}
           {provider.phone ? ` · ${formatPhone(provider.phone)}` : ''}
         </Text>
       ) : null}
@@ -187,6 +188,16 @@ function RequestRow({ request }: { request: ServiceRequest }) {
           style={({ pressed }) => [styles.action, styles.actionSecondary, { marginTop: 8 }, pressed && { opacity: 0.7 }]}
         >
           <Text style={styles.actionSecondaryText}>Conversa</Text>
+        </Pressable>
+      ) : null}
+      {request.status === 'completed' ? (
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Avaliar prestador"
+          onPress={() => router.push({ pathname: '/review/[id]', params: { id: request.id, companyId: request.companyId } })}
+          style={({ pressed }) => [styles.action, styles.actionPrimary, { marginTop: 8 }, pressed && { opacity: 0.7 }]}
+        >
+          <Text style={styles.actionPrimaryText}>Avaliar</Text>
         </Pressable>
       ) : null}
       {request.status === 'en_route' ? (

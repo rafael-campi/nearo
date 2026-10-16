@@ -1,6 +1,7 @@
 import { Injectable, OnModuleInit } from '@nestjs/common';
 import { Clock } from '../clock.js';
 import { TenantTransactions } from '../db/tenant-transactions.js';
+import { ReviewsService } from '../reviews/reviews.service.js';
 import { ServiceRequestsService } from '../service-requests/service-requests.service.js';
 import { DeadlineScheduler, type DeadlineJob } from './deadline-scheduler.js';
 
@@ -17,6 +18,7 @@ export class DeadlinesService implements OnModuleInit {
     private readonly scheduler: DeadlineScheduler,
     private readonly transactions: TenantTransactions,
     private readonly requests: ServiceRequestsService,
+    private readonly reviews: ReviewsService,
     private readonly clock: Clock,
   ) {}
 
@@ -35,6 +37,8 @@ export class DeadlinesService implements OnModuleInit {
           return this.requests.remindClient(job.serviceRequestId, stamp);
         case 'awaiting_client_timeout':
           return this.requests.expireAwaitingClient(job.serviceRequestId, stamp);
+        case 'reveal_reviews':
+          return this.reviews.revealAtDeadline(job.serviceRequestId, stamp);
       }
     });
   }

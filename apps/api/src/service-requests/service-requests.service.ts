@@ -5,6 +5,7 @@ import {
   withdrawableStatuses,
   type RequestEvent,
   nextServiceStep,
+  REVIEW_WINDOW_DAYS,
   type ServiceStep,
   socketEvents,
   type AcceptServiceRequestResponse,
@@ -32,6 +33,7 @@ import {
 } from '../db/schema.js';
 import { DATABASE, TenantTransactions, type Database } from '../db/tenant-transactions.js';
 import { ReverseGeocoder } from '../geocoding/reverse-geocoder.js';
+import { ReviewsService } from '../reviews/reviews.service.js';
 import { PhotosService } from '../photos/photos.service.js';
 import { NotificationsService } from '../notifications/notifications.service.js';
 import { RealtimeService } from '../realtime/realtime.service.js';
@@ -44,6 +46,8 @@ const MINUTE = 60_000;
 export const NO_ACCEPTANCE_MS = 15 * MINUTE;
 export const CLIENT_REMINDER_MS = 5 * MINUTE;
 export const CLIENT_TIMEOUT_MS = 10 * MINUTE;
+/** Avaliações existentes ficam visíveis quando o prazo de 7 dias acaba. */
+export const REVIEW_REVEAL_MS = REVIEW_WINDOW_DAYS * 24 * 60 * MINUTE;
 
 @Injectable()
 export class ServiceRequestsService {
@@ -57,6 +61,7 @@ export class ServiceRequestsService {
     private readonly scheduler: DeadlineScheduler,
     private readonly tracking: TrackingService,
     private readonly photos: PhotosService,
+    private readonly reviews: ReviewsService,
   ) {}
 
   /** Categorias ativas da empresa, para quem pede ou atende. */
@@ -182,7 +187,11 @@ export class ServiceRequestsService {
       ...assignedRows.map((r) => [r.id, Number(r.meters ?? 0)] as const),
     ]);
     if (meters.size === 0) return [];
-    const rows = await this.find(inArray(serviceRequests.id, [...meters.keys()]));
+    const rows = await this.rows(inArray(serviceRequests.id, [...meters.keys()]));
+    const photos = await this.photoUrls(rows.map((r) => r.id));
+    const clientIds = [...new Set(rows.map((r) => r.clientId))];
+    const ratings = await this.reviews.ratingsOf(clientIds);
+    const completed = await this.completedCounts(clientIds);
     return rows.map((r) => ({
       id: r.id,
       companyId: r.companyId,
@@ -191,10 +200,29 @@ export class ServiceRequestsService {
       neighborhood: r.neighborhood,
       distanceKm: Math.round((meters.get(r.id) ?? 0) / 100) / 10,
       clientFirstName: r.clientName.split(' ')[0],
+      clientRating: ratings.get(r.clientId) ?? ReviewsService.noRating(),
+      clientCompletedCount: completed.get(r.clientId) ?? 0,
       assigned: assigned.has(r.id),
-      photos: r.photos,
-      createdAt: r.createdAt,
+      photos: photos.get(r.id) ?? [],
+      createdAt: r.createdAt.toISOString(),
     }));
+  }
+
+  /** Pedidos concluídos de cada cliente na empresa atual. */
+  private async completedCounts(clientIds: string[]): Promise<Map<string, number>> {
+    const rows = await this.transactions
+      .current()
+      .select({ clientId: serviceRequests.clientId, count: sql<number>`count(*)::int` })
+      .from(serviceRequests)
+      .where(
+        and(
+          eq(serviceRequests.companyId, sql`app.current_company_id()`),
+          inArray(serviceRequests.clientId, clientIds),
+          eq(serviceRequests.status, 'completed'),
+        ),
+      )
+      .groupBy(serviceRequests.clientId);
+    return new Map(rows.map((r) => [r.clientId, r.count]));
   }
 
   /**
@@ -473,6 +501,7 @@ export class ServiceRequestsService {
       body: request.categoryName,
       serviceRequestId,
     });
+    if (to === 'completed') this.deadline('reveal_reviews', request, now, REVIEW_REVEAL_MS);
     // Ao chegar, a posição deixa de ser exposta.
     if (to !== 'en_route') this.transactions.afterCommit(() => this.tracking.clear(serviceRequestId));
     this.announceStatus(request, [locked.clientId, userId]);
@@ -574,7 +603,7 @@ export class ServiceRequestsService {
 
   /** Agenda um prazo para depois do commit; o job relê o pedido ao rodar e só age se o estado ainda for o mesmo. */
   private deadline(
-    kind: 'no_acceptance' | 'awaiting_client_reminder' | 'awaiting_client_timeout',
+    kind: 'no_acceptance' | 'awaiting_client_reminder' | 'awaiting_client_timeout' | 'reveal_reviews',
     request: ServiceRequest,
     stamp: Date,
     afterMs: number,
@@ -946,7 +975,7 @@ export class ServiceRequestsService {
   private async find(where: SQL | undefined): Promise<ServiceRequest[]> {
     const rows = await this.rows(where);
     const photos = await this.photoUrls(rows.map((r) => r.id));
-    return rows.map(({ location, createdAt, clientPhone: _clientPhone, cancelledAt, cancelledByRole, cancelReason, ...row }) => ({
+    return rows.map(({ location, createdAt, clientId: _clientId, clientPhone: _clientPhone, cancelledAt, cancelledByRole, cancelReason, ...row }) => ({
       ...row,
       photos: photos.get(row.id) ?? [],
       location: { latitude: location.y, longitude: location.x },
@@ -982,6 +1011,7 @@ export class ServiceRequestsService {
         companyName: companies.name,
         categoryId: serviceRequests.categoryId,
         categoryName: categories.name,
+        clientId: serviceRequests.clientId,
         clientName: users.name,
         clientPhone: users.phone,
         description: serviceRequests.description,

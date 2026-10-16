@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { MAX_REQUEST_PHOTOS } from './photo.js';
+import { ratingSchema } from './review.js';
 import { coordinatesSchema } from './provider.js';
 
 /** Status do Pedido. Ver "Status do pedido" em GLOSSARY.md. */
@@ -47,6 +48,7 @@ export type CreateServiceRequest = z.input<typeof createServiceRequestSchema>;
 export const requestProviderSchema = z.object({
   name: z.string(),
   completedCount: z.number().int(),
+  rating: ratingSchema,
   phone: z.string().nullable(),
 });
 export type RequestProvider = z.infer<typeof requestProviderSchema>;
@@ -87,6 +89,9 @@ export const openServiceRequestSchema = z.object({
   /** Distância aproximada (km, uma casa decimal) do endereço-base do prestador. */
   distanceKm: z.number(),
   clientFirstName: z.string(),
+  /** Nota do cliente nesta empresa e quantos pedidos dele foram concluídos (para o prestador decidir). */
+  clientRating: ratingSchema,
+  clientCompletedCount: z.number().int(),
   /** Atribuído a este prestador pelo admin (ele aceita ou recusa). */
   assigned: z.boolean(),
   photos: z.array(z.string()),

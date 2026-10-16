@@ -29,6 +29,8 @@ export const notificationTypeSchema = z.enum([
   'request_withdrawn',
   /** Para o outro lado da conversa: mensagem nova (uma atualização por conversa até ser lida). */
   'new_message',
+  /** Para quem foi avaliado: a avaliação ficou visível. */
+  'review_received',
 ]);
 export type NotificationType = z.infer<typeof notificationTypeSchema>;
 

@@ -209,7 +209,7 @@ export const serviceRequestDeclines = pgTable(
   (t) => [primaryKey({ columns: [t.serviceRequestId, t.providerMembershipId] })],
 );
 
-export const notificationType = pgEnum('notification_type', ['new_request', 'request_accepted', 'request_confirmed', 'request_declined', 'request_needs_assignment', 'request_assigned', 'request_unclaimed', 'request_reminder', 'request_expired', 'request_status', 'provider_nearby', 'request_cancelled', 'request_withdrawn', 'new_message']);
+export const notificationType = pgEnum('notification_type', ['new_request', 'request_accepted', 'request_confirmed', 'request_declined', 'request_needs_assignment', 'request_assigned', 'request_unclaimed', 'request_reminder', 'request_expired', 'request_status', 'provider_nearby', 'request_cancelled', 'request_withdrawn', 'new_message', 'review_received']);
 
 /** Atualização gravada para um usuário; o socket (e, depois, o push) a entrega. */
 export const notifications = pgTable('notifications', {
@@ -320,3 +320,32 @@ export const serviceRequestPhotos = pgTable('service_request_photos', {
   key: text('key').notNull(),
   position: integer('position').notNull(),
 });
+
+/**
+ * Avaliação do outro lado do pedido (nota 1–5 + comentário). Às cegas: `visibleAt` fica nulo até os dois
+ * avaliarem ou o prazo de 7 dias acabar; o RLS só deixa o autor ler a própria enquanto isso.
+ */
+export const reviews = pgTable(
+  'reviews',
+  {
+    id: id(),
+    companyId: uuid('company_id')
+      .notNull()
+      .references(() => companies.id, { onDelete: 'cascade' }),
+    serviceRequestId: uuid('service_request_id')
+      .notNull()
+      .references(() => serviceRequests.id, { onDelete: 'cascade' }),
+    reviewerId: uuid('reviewer_id')
+      .notNull()
+      .references(() => users.id),
+    revieweeId: uuid('reviewee_id')
+      .notNull()
+      .references(() => users.id),
+    reviewerRole: messageSenderRole('reviewer_role').notNull(),
+    rating: integer('rating').notNull(),
+    comment: text('comment').notNull().default(''),
+    createdAt: createdAt(),
+    visibleAt: timestamp('visible_at', { withTimezone: true }),
+  },
+  (t) => [unique('reviews_one_per_side').on(t.serviceRequestId, t.reviewerId)],
+);

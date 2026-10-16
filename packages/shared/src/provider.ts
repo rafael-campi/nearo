@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { categorySchema } from './category.js';
+import { ratingSchema } from './review.js';
 
 export const coordinatesSchema = z.object({
   latitude: z.number().min(-90).max(90),
@@ -29,6 +30,8 @@ export const providerSchema = z
     email: z.string(),
     active: z.boolean(),
     categoryIds: z.array(z.uuid()),
+    /** Nota do prestador nesta empresa. */
+    rating: ratingSchema,
   })
   .extend(providerSettingsSchema.shape);
 export type Provider = z.infer<typeof providerSchema>;

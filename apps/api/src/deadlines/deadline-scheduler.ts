@@ -4,7 +4,7 @@ import { Redis } from 'ioredis';
 import { APP_CONFIG, type AppConfig } from '../config.js';
 
 /** Prazos do pedido. Cada um carrega o "carimbo" do estado que o criou, para o job saber se ainda vale. */
-export type DeadlineKind = 'no_acceptance' | 'awaiting_client_reminder' | 'awaiting_client_timeout';
+export type DeadlineKind = 'no_acceptance' | 'awaiting_client_reminder' | 'awaiting_client_timeout' | 'reveal_reviews';
 
 export interface DeadlineJob {
   kind: DeadlineKind;

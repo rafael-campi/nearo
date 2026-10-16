@@ -64,6 +64,7 @@ describe('convite de prestador', () => {
         email: 'joao@email.com',
         active: true,
         categoryIds: [],
+        rating: { average: null, count: 0 },
         baseLocation: null,
         serviceRadiusKm: 20,
         available: false,

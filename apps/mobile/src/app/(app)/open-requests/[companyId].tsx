@@ -1,4 +1,4 @@
-import { nextServiceStep, serviceRequestStatusLabel, withdrawableStatuses, type OpenServiceRequest, type ProviderServiceRequest } from '@despacho/shared';
+import { nextServiceStep, ratingLabel, serviceRequestStatusLabel, withdrawableStatuses, type OpenServiceRequest, type ProviderServiceRequest } from '@despacho/shared';
 import { FlashList } from '@shopify/flash-list';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { router, Stack, useLocalSearchParams } from 'expo-router';
@@ -57,6 +57,10 @@ export default function OpenRequestsScreen() {
             <Text style={styles.body}>{item.description}</Text>
             <Text style={styles.meta}>
               {item.neighborhood ?? 'Bairro não identificado'} · a ~{item.distanceKm.toLocaleString('pt-BR')} km · {item.clientFirstName}
+            </Text>
+            <Text style={styles.meta}>
+              Cliente: {ratingLabel(item.clientRating)} · {item.clientCompletedCount}{' '}
+              {item.clientCompletedCount === 1 ? 'pedido concluído' : 'pedidos concluídos'}
             </Text>
             <PhotoStrip uris={item.photos} />
             <Text style={styles.meta}>{when.format(new Date(item.createdAt))}</Text>
@@ -149,6 +153,16 @@ function MyRequests({ companyId, requests }: { companyId: string; requests: Prov
           <Text style={styles.status}>
             {r.status === 'awaiting_client' ? 'Aguardando o cliente confirmar' : serviceRequestStatusLabel[r.status]}
           </Text>
+          {r.status === 'completed' ? (
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Avaliar cliente"
+              onPress={() => router.push({ pathname: '/review/[id]', params: { id: r.id, companyId } })}
+              style={({ pressed }) => [styles.button, styles.primary, { marginTop: 8 }, pressed && { opacity: 0.7 }]}
+            >
+              <Text style={styles.primaryText}>Avaliar cliente</Text>
+            </Pressable>
+          ) : null}
           {r.details ? (
             <Pressable
               accessibilityRole="button"

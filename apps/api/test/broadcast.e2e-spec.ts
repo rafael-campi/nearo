@@ -112,6 +112,8 @@ describe('broadcast: prestador apto vê e aceita ou recusa', () => {
         distanceKm: expect.closeTo(2.6, 0),
         clientFirstName: 'Rita',
         assigned: false,
+        clientRating: { average: null, count: 0 },
+        clientCompletedCount: 0,
         photos: [],
         createdAt: expect.any(String),
       });

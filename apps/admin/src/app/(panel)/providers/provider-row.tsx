@@ -1,6 +1,6 @@
 "use client";
 
-import type { Category, Provider } from "@despacho/shared";
+import { ratingLabel, type Category, type Provider } from "@despacho/shared";
 import { useActionState, useTransition } from "react";
 import { FormMessage, type FormState } from "@/components/form";
 import { setProviderActive, setProviderCategories } from "../../actions";
@@ -20,6 +20,7 @@ export function ProviderRow({ provider, categories }: { provider: Provider; cate
         <div className={`flex-1 ${provider.active ? "" : "text-zinc-400"}`}>
           <p className="text-sm font-medium">{provider.name}</p>
           <p className="text-sm text-zinc-500">{provider.email}</p>
+          <p className="text-sm text-zinc-500">{ratingLabel(provider.rating)}</p>
           <ProviderSettingsSummary provider={provider} />
         </div>
         {!provider.active && (

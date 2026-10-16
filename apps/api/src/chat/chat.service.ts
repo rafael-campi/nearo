@@ -11,17 +11,11 @@ import {
 } from '@despacho/shared';
 import { and, desc, eq, lt, sql } from 'drizzle-orm';
 import { Clock } from '../clock.js';
-import { memberships, messages, serviceRequests, users } from '../db/schema.js';
+import { messages, users } from '../db/schema.js';
 import { TenantTransactions } from '../db/tenant-transactions.js';
+import { RequestAccessService } from '../service-requests/request-access.service.js';
 import { PhotosService } from '../photos/photos.service.js';
 import { RealtimeService } from '../realtime/realtime.service.js';
-
-interface Participation {
-  status: (typeof serviceRequests.$inferSelect)['status'];
-  clientId: string;
-  providerUserId: string | null;
-  role: 'client' | 'provider' | 'admin';
-}
 
 const columns = {
   id: messages.id,
@@ -46,10 +40,11 @@ export class ChatService {
     private readonly realtime: RealtimeService,
     private readonly clock: Clock,
     private readonly photos: PhotosService,
+    private readonly access: RequestAccessService,
   ) {}
 
   async send(userId: string, serviceRequestId: string, input: SendMessage): Promise<Message> {
-    const who = await this.participation(userId, serviceRequestId);
+    const who = await this.access.participation(userId, serviceRequestId);
     if (who.role === 'admin') throw new NotFoundException();
     if (!(chatWritableStatuses as readonly string[]).includes(who.status)) {
       throw new ConflictException('A conversa está encerrada');
@@ -105,7 +100,7 @@ export class ChatService {
 
   /** Mensagens em ordem cronológica, as mais recentes primeiro por página; `cursor` leva às mais antigas. */
   async list(userId: string, serviceRequestId: string, cursor: string | undefined): Promise<MessagePage> {
-    await this.participation(userId, serviceRequestId);
+    await this.access.participation(userId, serviceRequestId);
     const before = cursor === undefined ? undefined : parseCursor(cursor);
     const rows = await this.select(
       and(eq(messages.serviceRequestId, serviceRequestId), before === undefined ? undefined : lt(messages.seq, before)),
@@ -116,39 +111,6 @@ export class ChatService {
       messages: (await Promise.all(page.map((row) => this.toMessage(row)))).reverse(),
       nextCursor: rows.length > MESSAGES_PAGE_SIZE ? String(page[page.length - 1].seq) : null,
     };
-  }
-
-  /** Quem é a pessoa no pedido: cliente, prestador do pedido ou admin da empresa. Outra pessoa: 404. */
-  private async participation(userId: string, serviceRequestId: string): Promise<Participation> {
-    const tx = this.transactions.current();
-    const [request] = await tx
-      .select({ status: serviceRequests.status, clientId: serviceRequests.clientId, providerMembershipId: serviceRequests.providerMembershipId })
-      .from(serviceRequests)
-      .where(and(eq(serviceRequests.id, serviceRequestId), eq(serviceRequests.companyId, sql`app.current_company_id()`)));
-    if (!request) throw new NotFoundException();
-
-    let providerUserId: string | null = null;
-    if (request.providerMembershipId) {
-      const [provider] = await tx.select({ userId: memberships.userId }).from(memberships).where(eq(memberships.id, request.providerMembershipId));
-      providerUserId = provider?.userId ?? null;
-    }
-    const common = { status: request.status, clientId: request.clientId, providerUserId };
-    if (userId === request.clientId) return { ...common, role: 'client' };
-    if (userId === providerUserId) return { ...common, role: 'provider' };
-
-    const [admin] = await tx
-      .select({ id: memberships.id })
-      .from(memberships)
-      .where(
-        and(
-          eq(memberships.companyId, sql`app.current_company_id()`),
-          eq(memberships.userId, userId),
-          eq(memberships.role, 'admin'),
-          eq(memberships.active, true),
-        ),
-      );
-    if (!admin) throw new NotFoundException();
-    return { ...common, role: 'admin' };
   }
 
   private select(where: ReturnType<typeof and>, limit?: number) {

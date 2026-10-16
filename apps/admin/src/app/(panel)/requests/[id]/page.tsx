@@ -1,4 +1,4 @@
-import type { EligibleProvider, MessagePage, RequestDecline, RequestEvent, ServiceRequest } from "@despacho/shared";
+import { ratingLabel, type EligibleProvider, type MessagePage, type RequestDecline, type RequestEvent, type RequestReviews, type ServiceRequest } from "@despacho/shared";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { Suspense } from "react";
@@ -67,7 +67,7 @@ async function Detail({ params }: { params: Promise<{ id: string }> }) {
         ) : null}
         {request.provider ? (
           <p className="mt-2 text-sm">
-            Prestador: <strong>{request.provider.name}</strong>
+            Prestador: <strong>{request.provider.name}</strong> · {ratingLabel(request.provider.rating)}
             {request.provider.phone ? ` · ${request.provider.phone}` : ""}
           </p>
         ) : null}
@@ -86,6 +86,11 @@ async function Detail({ params }: { params: Promise<{ id: string }> }) {
       <Suspense fallback={<p className="text-sm text-zinc-500">Carregando conversa…</p>}>
         <Chat requestId={request.id} />
       </Suspense>
+      {request.status === "completed" ? (
+        <Suspense fallback={<p className="text-sm text-zinc-500">Carregando avaliações…</p>}>
+          <Reviews requestId={request.id} />
+        </Suspense>
+      ) : null}
       {request.status !== "completed" && request.status !== "cancelled" ? <CancelForm requestId={request.id} /> : null}
     </>
   );
@@ -187,6 +192,35 @@ async function Chat({ requestId }: { requestId: string }) {
           </li>
         ))}
       </ul>
+    </div>
+  );
+}
+
+/** Avaliações já reveladas (às cegas até os dois avaliarem ou o prazo de 7 dias acabar). */
+async function Reviews({ requestId }: { requestId: string }) {
+  const res = await companyApi<RequestReviews>(`/company/service-requests/${requestId}/reviews`);
+  if (!res.ok) redirect("/login");
+  return (
+    <div>
+      <h2 className="mb-2 text-sm font-semibold">Avaliações</h2>
+      {res.data.reviews.length === 0 ? (
+        <p className="text-sm text-zinc-500">
+          Nenhuma avaliação visível ainda. Elas aparecem quando os dois avaliam ou em{" "}
+          {res.data.deadline ? dateFormat.format(new Date(res.data.deadline)) : "7 dias"}.
+        </p>
+      ) : (
+        <ul className="divide-y divide-zinc-200 rounded-xl border border-zinc-200 bg-white dark:divide-zinc-800 dark:border-zinc-800 dark:bg-zinc-950">
+          {res.data.reviews.map((review) => (
+            <li key={review.id} className="px-4 py-3 text-sm">
+              <p>
+                <strong>{review.reviewerName ?? "Usuário removido"}</strong> ({review.reviewerRole === "client" ? "cliente" : "prestador"}){" "}
+                avaliou com <strong>{review.rating}</strong>/5
+              </p>
+              {review.comment ? <p className="text-zinc-500">{review.comment}</p> : null}
+            </li>
+          ))}
+        </ul>
+      )}
     </div>
   );
 }

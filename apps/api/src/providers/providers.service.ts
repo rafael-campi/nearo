@@ -10,6 +10,7 @@ import {
 import { and, asc, eq, inArray, sql } from 'drizzle-orm';
 import { categories, memberships, providerCategories, providerProfiles, users } from '../db/schema.js';
 import { TenantTransactions } from '../db/tenant-transactions.js';
+import { ReviewsService } from '../reviews/reviews.service.js';
 import { ServiceRequestsService } from '../service-requests/service-requests.service.js';
 
 /** Prestadores da empresa da transação atual; o RLS restringe à empresa. */
@@ -18,6 +19,7 @@ export class ProvidersService {
   constructor(
     private readonly transactions: TenantTransactions,
     private readonly requests: ServiceRequestsService,
+    private readonly reviews: ReviewsService,
   ) {}
 
   async list(membershipId?: string): Promise<Provider[]> {
@@ -25,6 +27,7 @@ export class ProvidersService {
     const rows = await tx
       .select({
         membershipId: memberships.id,
+        userId: memberships.userId,
         name: users.name,
         email: users.email,
         active: memberships.active,
@@ -47,8 +50,10 @@ export class ProvidersService {
       .select({ membershipId: providerCategories.membershipId, categoryId: providerCategories.categoryId })
       .from(providerCategories)
       .where(inArray(providerCategories.membershipId, rows.map((r) => r.membershipId)));
-    return rows.map(({ baseLocation, serviceRadiusKm, available, ...row }) => ({
+    const ratings = await this.reviews.ratingsOf(rows.map((r) => r.userId));
+    return rows.map(({ baseLocation, serviceRadiusKm, available, userId, ...row }) => ({
       ...row,
+      rating: ratings.get(userId) ?? ReviewsService.noRating(),
       ...toSettings({ baseLocation, serviceRadiusKm, available }),
       categoryIds: links.filter((l) => l.membershipId === row.membershipId).map((l) => l.categoryId),
     }));

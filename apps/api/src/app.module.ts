@@ -29,6 +29,9 @@ import { ProvidersController } from './providers/providers.controller.js';
 import { ProvidersService } from './providers/providers.service.js';
 import { StorageModule } from './storage/storage.js';
 import { RedisModule } from './redis/redis.module.js';
+import { ReviewsController } from './reviews/reviews.controller.js';
+import { ReviewsService } from './reviews/reviews.service.js';
+import { RequestAccessService } from './service-requests/request-access.service.js';
 import { ServiceRequestsController } from './service-requests/service-requests.controller.js';
 import { ServiceRequestsService } from './service-requests/service-requests.service.js';
 import { TrackingService } from './service-requests/tracking.service.js';
@@ -42,7 +45,7 @@ class ConfigModule {}
 
 @Module({
   imports: [ConfigModule, ClockModule, DatabaseModule, RedisModule, MailModule, AuthModule, GeocodingModule, StorageModule],
-  controllers: [HealthController, CompanyController, InvitesController, CategoriesController, ClientsController, ProvidersController, ServiceRequestsController, NotificationsController, ChatController, PhotosController],
-  providers: [CompaniesService, InvitesService, CategoriesService, ClientsService, ProvidersService, ServiceRequestsService, NotificationsService, RealtimeService, RealtimeGateway, { provide: DeadlineScheduler, useClass: BullDeadlineScheduler }, DeadlinesService, TrackingService, MaintenanceService, ChatService, PhotosService],
+  controllers: [HealthController, CompanyController, InvitesController, CategoriesController, ClientsController, ProvidersController, ServiceRequestsController, NotificationsController, ChatController, PhotosController, ReviewsController],
+  providers: [CompaniesService, InvitesService, CategoriesService, ClientsService, ProvidersService, ServiceRequestsService, NotificationsService, RealtimeService, RealtimeGateway, { provide: DeadlineScheduler, useClass: BullDeadlineScheduler }, DeadlinesService, TrackingService, MaintenanceService, ChatService, PhotosService, ReviewsService, RequestAccessService],
 })
 export class AppModule {}

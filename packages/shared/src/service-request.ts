@@ -40,6 +40,14 @@ export const createServiceRequestSchema = z.object({
 });
 export type CreateServiceRequest = z.input<typeof createServiceRequestSchema>;
 
+/** Prestador que aceitou o pedido, como o cliente o vê. O telefone só aparece depois de confirmado. */
+export const requestProviderSchema = z.object({
+  name: z.string(),
+  completedCount: z.number().int(),
+  phone: z.string().nullable(),
+});
+export type RequestProvider = z.infer<typeof requestProviderSchema>;
+
 export const serviceRequestSchema = z.object({
   id: z.uuid(),
   companyId: z.uuid(),
@@ -52,6 +60,7 @@ export const serviceRequestSchema = z.object({
   addressComplement: z.string(),
   neighborhood: z.string().nullable(),
   status: serviceRequestStatusSchema,
+  provider: requestProviderSchema.nullable(),
   createdAt: z.iso.datetime(),
 });
 export type ServiceRequest = z.infer<typeof serviceRequestSchema>;
@@ -78,3 +87,30 @@ export const acceptServiceRequestResponseSchema = z.object({
   status: serviceRequestStatusSchema,
 });
 export type AcceptServiceRequestResponse = z.infer<typeof acceptServiceRequestResponseSchema>;
+
+export const confirmServiceRequestResponseSchema = acceptServiceRequestResponseSchema;
+export type ConfirmServiceRequestResponse = AcceptServiceRequestResponse;
+
+/** Status em que endereço completo e telefones já foram liberados (a partir da confirmação). */
+export const fullViewStatuses: ServiceRequestStatus[] = ['confirmed', 'en_route', 'arrived', 'in_progress', 'completed'];
+
+/** Pedido do prestador: visão reduzida até o cliente confirmar; depois, endereço completo e telefone do cliente. */
+export const providerServiceRequestSchema = z.object({
+  id: z.uuid(),
+  companyId: z.uuid(),
+  categoryName: z.string(),
+  description: z.string(),
+  neighborhood: z.string().nullable(),
+  clientFirstName: z.string(),
+  status: serviceRequestStatusSchema,
+  details: z
+    .object({
+      clientName: z.string(),
+      clientPhone: z.string().nullable(),
+      location: coordinatesSchema,
+      addressComplement: z.string(),
+    })
+    .nullable(),
+  createdAt: z.iso.datetime(),
+});
+export type ProviderServiceRequest = z.infer<typeof providerServiceRequestSchema>;

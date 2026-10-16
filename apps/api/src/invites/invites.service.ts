@@ -119,7 +119,7 @@ export class InvitesService {
     if (!body.name) throw new BadRequestException({ message: 'Dados inválidos', issues: [{ path: 'name', message: 'Informe seu nome' }] });
     const [user] = await this.db
       .insert(users)
-      .values({ email, name: body.name, passwordHash: await hashPassword(body.password) })
+      .values({ email, name: body.name, phone: body.phone, passwordHash: await hashPassword(body.password) })
       .returning({ id: users.id });
     return user.id;
   }

@@ -3,7 +3,9 @@ import {
   createServiceRequestSchema,
   type AcceptServiceRequestResponse,
   type CategoryOption,
+  type ConfirmServiceRequestResponse,
   type OpenServiceRequest,
+  type ProviderServiceRequest,
   type ServiceRequest,
 } from '@despacho/shared';
 import type { z } from 'zod';
@@ -63,6 +65,32 @@ export class ServiceRequestsController {
     @Param('id', new ParseUUIDPipe({ errorHttpStatusCode: 404 })) id: string,
   ): Promise<void> {
     return this.requests.decline(tenant.userId, id);
+  }
+
+  @CompanyRoles('provider')
+  @Get('company/provider-requests')
+  forProvider(@Tenant() tenant: TenantContext): Promise<ProviderServiceRequest[]> {
+    return this.requests.forProvider(tenant.userId);
+  }
+
+  @CompanyRoles('client')
+  @Post('company/service-requests/:id/confirm')
+  @HttpCode(200)
+  confirm(
+    @Tenant() tenant: TenantContext,
+    @Param('id', new ParseUUIDPipe({ errorHttpStatusCode: 404 })) id: string,
+  ): Promise<ConfirmServiceRequestResponse> {
+    return this.requests.confirm(tenant.userId, id);
+  }
+
+  @CompanyRoles('client')
+  @Post('company/service-requests/:id/decline-provider')
+  @HttpCode(204)
+  declineProvider(
+    @Tenant() tenant: TenantContext,
+    @Param('id', new ParseUUIDPipe({ errorHttpStatusCode: 404 })) id: string,
+  ): Promise<void> {
+    return this.requests.declineProvider(tenant.userId, id);
   }
 
   @Get('my/service-requests')

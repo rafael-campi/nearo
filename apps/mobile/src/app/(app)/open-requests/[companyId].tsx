@@ -1,4 +1,4 @@
-import type { OpenServiceRequest } from '@despacho/shared';
+import { serviceRequestStatusLabel, type OpenServiceRequest, type ProviderServiceRequest } from '@despacho/shared';
 import { FlashList } from '@shopify/flash-list';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Stack, useLocalSearchParams } from 'expo-router';
@@ -15,6 +15,10 @@ export default function OpenRequestsScreen() {
   const requests = useQuery({
     queryKey: queryKeys.openRequests(companyId),
     queryFn: () => api<OpenServiceRequest[]>('/company/open-requests', { companyId }),
+  });
+  const mine = useQuery({
+    queryKey: queryKeys.providerRequests(companyId),
+    queryFn: () => api<ProviderServiceRequest[]>('/company/provider-requests', { companyId }),
   });
   const refresh = () => queryClient.invalidateQueries({ queryKey: queryKeys.openRequests(companyId) });
   const accept = useMutation({
@@ -40,6 +44,7 @@ export default function OpenRequestsScreen() {
         data={requests.data}
         keyExtractor={(item) => item.id}
         extraData={busy}
+        ListHeaderComponent={<MyRequests requests={mine.data ?? []} />}
         ListEmptyComponent={<Text style={styles.empty}>Nenhum pedido aberto para você agora. Avisaremos quando chegar um.</Text>}
         renderItem={({ item }) => (
           <View style={styles.card}>
@@ -76,7 +81,47 @@ export default function OpenRequestsScreen() {
   );
 }
 
+/** Pedidos que o prestador aceitou: endereço completo e telefone só depois da confirmação do cliente. */
+function MyRequests({ requests }: { requests: ProviderServiceRequest[] }) {
+  if (requests.length === 0) return null;
+  return (
+    <View>
+      <Text style={styles.section} accessibilityRole="header">
+        Seus pedidos
+      </Text>
+      {requests.map((r) => (
+        <View key={r.id} style={styles.card} accessibilityLabel={`Pedido de ${r.categoryName}: ${serviceRequestStatusLabel[r.status]}`}>
+          <Text style={styles.title}>{r.categoryName}</Text>
+          <Text style={styles.body}>{r.description}</Text>
+          {r.details ? (
+            <>
+              <Text style={styles.meta}>
+                {r.details.clientName}
+                {r.details.clientPhone ? ` · ${r.details.clientPhone.replace(/^(\d{2})(\d{4,5})(\d{4})$/, '($1) $2-$3')}` : ''}
+              </Text>
+              <Text style={styles.meta}>
+                {[r.neighborhood, r.details.addressComplement].filter(Boolean).join(' · ')} ({r.details.location.latitude.toFixed(5)},{' '}
+                {r.details.location.longitude.toFixed(5)})
+              </Text>
+            </>
+          ) : (
+            <Text style={styles.meta}>{r.neighborhood ?? 'Bairro não identificado'} · {r.clientFirstName}</Text>
+          )}
+          <Text style={styles.status}>
+            {r.status === 'awaiting_client' ? 'Aguardando o cliente confirmar' : serviceRequestStatusLabel[r.status]}
+          </Text>
+        </View>
+      ))}
+      <Text style={styles.section} accessibilityRole="header">
+        Pedidos abertos
+      </Text>
+    </View>
+  );
+}
+
 const styles = StyleSheet.create({
+  section: { fontSize: 13, fontWeight: '700', color: colors.muted, textTransform: 'uppercase', letterSpacing: 0.5, paddingHorizontal: 24, paddingTop: 16 },
+  status: { fontSize: 13, fontWeight: '600', color: '#b45309', marginTop: 4 },
   container: { flex: 1, backgroundColor: colors.background },
   empty: { fontSize: 15, color: colors.muted, padding: 24, lineHeight: 22 },
   card: {

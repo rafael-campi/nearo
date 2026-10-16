@@ -21,6 +21,7 @@ export function eligiblePairs(filter: { serviceRequestId?: string; membershipId?
        ${filter.membershipId ? sql`and m.id = ${filter.membershipId}` : sql``}
        ${filter.openOnly ? sql`and r.status = 'open'` : sql``}
        and m.user_id <> r.client_id
+       and not app.provider_has_active_request(m.user_id)
        and exists (
          select 1 from provider_categories pc
           where pc.membership_id = m.id and pc.category_id = r.category_id

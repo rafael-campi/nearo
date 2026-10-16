@@ -21,6 +21,7 @@ export function AcceptForm({ token, role, hasAccount }: { token: string; role: M
       ) : (
         <>
           <Field label="Seu nome" name="name" autoComplete="name" defaultValue={state.values?.name} required />
+          <Field label="Telefone (opcional)" name="phone" type="tel" autoComplete="tel" defaultValue={state.values?.phone} />
           <Field label="Senha" name="password" type="password" autoComplete="new-password" minLength={8} required />
           <Field label="Confirme a senha" name="confirm" type="password" autoComplete="new-password" required />
         </>

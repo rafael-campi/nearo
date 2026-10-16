@@ -5,7 +5,7 @@ import {
   type ServiceRequest,
 } from '@despacho/shared';
 import { FlashList } from '@shopify/flash-list';
-import { useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { router, Stack } from 'expo-router';
 import { useEffect } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
@@ -133,6 +133,16 @@ function HomeItem({ item }: { item: Item }) {
 const requestDate = new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
 
 function RequestRow({ request }: { request: ServiceRequest }) {
+  const queryClient = useQueryClient();
+  const refresh = () => queryClient.invalidateQueries({ queryKey: queryKeys.myRequests });
+  const answer = (path: 'confirm' | 'decline-provider') =>
+    api(`/company/service-requests/${request.id}/${path}`, { method: 'POST', companyId: request.companyId });
+  const confirm = useMutation({ mutationFn: () => answer('confirm'), onSettled: refresh });
+  const refuse = useMutation({ mutationFn: () => answer('decline-provider'), onSettled: refresh });
+  const busy = confirm.isPending || refuse.isPending;
+  const error = confirm.error ?? refuse.error;
+  const { provider } = request;
+
   const status = request.status === 'open' ? 'Procurando prestador' : serviceRequestStatusLabel[request.status];
   return (
     <View style={styles.company} accessibilityLabel={`Pedido de ${request.categoryName}: ${status}`}>
@@ -145,8 +155,45 @@ function RequestRow({ request }: { request: ServiceRequest }) {
       <Text style={[styles.detail, request.status === 'open' && styles.searching]}>
         {status} · {requestDate.format(new Date(request.createdAt))}
       </Text>
+      {provider ? (
+        <Text style={styles.provider}>
+          {provider.name} · {provider.completedCount} {provider.completedCount === 1 ? 'pedido concluído' : 'pedidos concluídos'}
+          {provider.phone ? ` · ${formatPhone(provider.phone)}` : ''}
+        </Text>
+      ) : null}
+      {request.status === 'awaiting_client' ? (
+        <>
+          <Text style={styles.searching}>{provider?.name.split(' ')[0] ?? 'Um prestador'} aceitou. Confirma?</Text>
+          {error ? <ErrorText>{error.message}</ErrorText> : null}
+          <View style={styles.actions}>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Recusar prestador"
+              disabled={busy}
+              onPress={() => refuse.mutate()}
+              style={({ pressed }) => [styles.action, styles.actionSecondary, (pressed || busy) && { opacity: 0.6 }]}
+            >
+              <Text style={styles.actionSecondaryText}>Recusar</Text>
+            </Pressable>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Confirmar prestador"
+              disabled={busy}
+              onPress={() => confirm.mutate()}
+              style={({ pressed }) => [styles.action, styles.actionPrimary, (pressed || busy) && { opacity: 0.6 }]}
+            >
+              <Text style={styles.actionPrimaryText}>Confirmar</Text>
+            </Pressable>
+          </View>
+        </>
+      ) : null}
     </View>
   );
+}
+
+/** Telefone guardado só com dígitos: (11) 99999-9999. */
+function formatPhone(digits: string): string {
+  return digits.replace(/^(\d{2})(\d{4,5})(\d{4})$/, '($1) $2-$3');
 }
 
 function ClientCompany({ membership }: { membership: Membership }) {
@@ -253,6 +300,13 @@ const styles = StyleSheet.create({
   companyName: { fontSize: 16, fontWeight: '600', color: colors.text },
   detail: { fontSize: 14, color: colors.muted },
   sectionTitle: { fontSize: 13, fontWeight: '700', color: colors.muted, textTransform: 'uppercase', letterSpacing: 0.5, paddingHorizontal: 24, paddingTop: 16, paddingBottom: 8 },
+  provider: { fontSize: 14, color: colors.text, fontWeight: '600' },
+  actions: { flexDirection: 'row', gap: 8, marginTop: 8 },
+  action: { flex: 1, alignItems: 'center', borderRadius: 8, paddingVertical: 10 },
+  actionPrimary: { backgroundColor: colors.primary },
+  actionPrimaryText: { color: colors.onPrimary, fontWeight: '600' },
+  actionSecondary: { borderWidth: 1, borderColor: colors.border },
+  actionSecondaryText: { color: colors.text, fontWeight: '600' },
   searching: { color: '#b45309', fontWeight: '600' },
   companyRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   smallButton: { backgroundColor: colors.primary, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 8 },

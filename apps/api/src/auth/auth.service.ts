@@ -35,11 +35,11 @@ export class AuthService {
   }
 
   /** Cadastro próprio (cliente). Entra logado. */
-  async signup({ name, email, password }: SignupRequest): Promise<string> {
+  async signup({ name, email, password, phone }: SignupRequest): Promise<string> {
     try {
       const [user] = await this.db
         .insert(users)
-        .values({ name, email, passwordHash: await hashPassword(password) })
+        .values({ name, email, phone, passwordHash: await hashPassword(password) })
         .returning({ id: users.id });
       return await this.sessions.create(user.id);
     } catch (error) {

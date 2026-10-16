@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { emailSchema, passwordSchema } from './auth.js';
+import { emailSchema, passwordSchema, phoneSchema } from './auth.js';
 import { membershipRoleSchema } from './membership.js';
 
 export const invitePreviewSchema = z.object({
@@ -13,6 +13,7 @@ export type InvitePreview = z.infer<typeof invitePreviewSchema>;
 /** Quem ainda não tem conta informa nome; quem já tem confirma com a senha atual. */
 export const acceptInviteRequestSchema = z.object({
   name: z.string().trim().min(1).optional(),
+  phone: phoneSchema.optional(),
   password: passwordSchema,
 });
 export type AcceptInviteRequest = z.infer<typeof acceptInviteRequestSchema>;

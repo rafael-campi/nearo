@@ -9,6 +9,13 @@ export const emailSchema = z
 
 export const passwordSchema = z.string().min(8, { error: 'A senha precisa de pelo menos 8 caracteres' });
 
+/** Telefone opcional: só dígitos, com DDD (10 ou 11); aceita máscara na entrada. */
+export const phoneSchema = z
+  .string()
+  .trim()
+  .transform((v) => v.replace(/\D/g, ''))
+  .pipe(z.string().regex(/^\d{10,11}$/, { error: 'Telefone inválido: use DDD e número' }));
+
 export const loginRequestSchema = z.object({
   email: emailSchema,
   password: z.string().min(1),
@@ -19,6 +26,7 @@ export const signupRequestSchema = z.object({
   name: z.string().trim().min(1, { error: 'Informe seu nome' }),
   email: emailSchema,
   password: passwordSchema,
+  phone: phoneSchema.optional(),
 });
 export type SignupRequest = z.infer<typeof signupRequestSchema>;
 

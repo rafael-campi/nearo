@@ -52,9 +52,10 @@ export async function acceptInvite(
   _: FormState,
   formData: FormData,
 ): Promise<FormState> {
-  const values = keepValues(formData, "name");
+  const values = keepValues(formData, "name", "phone");
   const input = acceptInviteRequestSchema.safeParse({
     name: formData.get("name") || undefined,
+    phone: formData.get("phone") || undefined,
     password: formData.get("password"),
   });
   if (!input.success) return { message: input.error.issues[0].message, values };

@@ -25,13 +25,17 @@ export function useRealtime() {
     socket.on(socketEvents.notification, (payload: unknown) => {
       const notification = notificationEventSchema.safeParse(payload);
       queryClient.invalidateQueries({ queryKey: queryKeys.notifications });
-      if (notification.success && notification.data.type === 'request_accepted') {
+      if (notification.success && notification.data.type !== 'new_request') {
+        const { companyId } = notification.data;
         queryClient.invalidateQueries({ queryKey: queryKeys.myRequests });
+        queryClient.invalidateQueries({ queryKey: queryKeys.providerRequests(companyId) });
       }
     });
     socket.on(socketEvents.serviceRequestUpdated, (payload: unknown) => {
-      if (serviceRequestUpdatedEventSchema.safeParse(payload).success) {
+      const event = serviceRequestUpdatedEventSchema.safeParse(payload);
+      if (event.success) {
         queryClient.invalidateQueries({ queryKey: queryKeys.myRequests });
+        queryClient.invalidateQueries({ queryKey: queryKeys.providerRequests(event.data.companyId) });
       }
     });
     socket.on(socketEvents.openRequestsChanged, (payload: unknown) => {

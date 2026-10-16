@@ -26,6 +26,8 @@ export const users = pgTable('users', {
   email: text('email').notNull().unique(),
   name: text('name').notNull(),
   passwordHash: text('password_hash').notNull(),
+  /** Só dígitos, com DDD. Opcional; é mostrado ao outro lado só depois da confirmação do pedido. */
+  phone: text('phone'),
   createdAt: createdAt(),
 });
 
@@ -161,6 +163,7 @@ export const serviceRequests = pgTable('service_requests', {
   /** Vínculo do prestador que aceitou (ou foi atribuído). */
   providerMembershipId: uuid('provider_membership_id').references(() => memberships.id),
   acceptedAt: timestamp('accepted_at', { withTimezone: true }),
+  confirmedAt: timestamp('confirmed_at', { withTimezone: true }),
   createdAt: createdAt(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
 });
@@ -186,7 +189,7 @@ export const serviceRequestDeclines = pgTable(
   (t) => [primaryKey({ columns: [t.serviceRequestId, t.providerMembershipId] })],
 );
 
-export const notificationType = pgEnum('notification_type', ['new_request', 'request_accepted']);
+export const notificationType = pgEnum('notification_type', ['new_request', 'request_accepted', 'request_confirmed', 'request_declined']);
 
 /** Atualização gravada para um usuário; o socket (e, depois, o push) a entrega. */
 export const notifications = pgTable('notifications', {

@@ -134,6 +134,8 @@ export const providerProfiles = pgTable('provider_profiles', {
   updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
 });
 
+export const eventActor = pgEnum('event_actor', ['client', 'admin', 'provider', 'system']);
+
 export const serviceRequestStatus = pgEnum('service_request_status', [
   'open',
   'assigned',
@@ -173,6 +175,9 @@ export const serviceRequests = pgTable('service_requests', {
   completedAt: timestamp('completed_at', { withTimezone: true }),
   /** Quando o cliente foi avisado do raio de aviso; só uma vez por pedido. */
   proximityNotifiedAt: timestamp('proximity_notified_at', { withTimezone: true }),
+  cancelledAt: timestamp('cancelled_at', { withTimezone: true }),
+  cancelledByRole: eventActor('cancelled_by_role'),
+  cancelReason: text('cancel_reason'),
   /** Os prestadores aptos veem e aceitam o pedido aberto (modo da empresa quando ele foi criado ou reaberto). */
   broadcast: boolean('broadcast').notNull().default(true),
   /** Desde quando o pedido está aberto (criação ou última volta para aberto); marca o prazo de 15 min. */
@@ -202,7 +207,7 @@ export const serviceRequestDeclines = pgTable(
   (t) => [primaryKey({ columns: [t.serviceRequestId, t.providerMembershipId] })],
 );
 
-export const notificationType = pgEnum('notification_type', ['new_request', 'request_accepted', 'request_confirmed', 'request_declined', 'request_needs_assignment', 'request_assigned', 'request_unclaimed', 'request_reminder', 'request_expired', 'request_status', 'provider_nearby']);
+export const notificationType = pgEnum('notification_type', ['new_request', 'request_accepted', 'request_confirmed', 'request_declined', 'request_needs_assignment', 'request_assigned', 'request_unclaimed', 'request_reminder', 'request_expired', 'request_status', 'provider_nearby', 'request_cancelled', 'request_withdrawn']);
 
 /** Atualização gravada para um usuário; o socket (e, depois, o push) a entrega. */
 export const notifications = pgTable('notifications', {
@@ -232,4 +237,23 @@ export const providerPositions = pgTable('provider_positions', {
     .references(() => serviceRequests.id, { onDelete: 'cascade' }),
   location: geometry('location', { type: 'point', mode: 'xy', srid: 4326 }).notNull(),
   recordedAt: timestamp('recorded_at', { withTimezone: true }).notNull(),
+});
+
+export const requestEventKind = pgEnum('request_event_kind', ['cancellation', 'withdrawal']);
+
+/** Cancelamentos e desistências: quem, quando e por quê. O admin vê o histórico do pedido. */
+export const serviceRequestEvents = pgTable('service_request_events', {
+  id: id(),
+  companyId: uuid('company_id')
+    .notNull()
+    .references(() => companies.id, { onDelete: 'cascade' }),
+  serviceRequestId: uuid('service_request_id')
+    .notNull()
+    .references(() => serviceRequests.id, { onDelete: 'cascade' }),
+  kind: requestEventKind('kind').notNull(),
+  byRole: eventActor('by_role').notNull(),
+  /** Quem agiu; null quando foi o sistema (ex.: empresa desativada). */
+  byUserId: uuid('by_user_id').references(() => users.id, { onDelete: 'set null' }),
+  reason: text('reason').notNull(),
+  createdAt: createdAt(),
 });

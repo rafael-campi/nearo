@@ -1,6 +1,9 @@
 import { BadRequestException, ConflictException, Inject, Injectable, NotFoundException } from '@nestjs/common';
 import {
+  clientCancellableStatuses,
   fullViewStatuses,
+  withdrawableStatuses,
+  type RequestEvent,
   nextServiceStep,
   type ServiceStep,
   socketEvents,
@@ -17,7 +20,15 @@ import {
 import { and, asc, desc, eq, gt, inArray, or, sql, type SQL } from 'drizzle-orm';
 import { Clock } from '../clock.js';
 import { DeadlineScheduler } from '../deadlines/deadline-scheduler.js';
-import { categories, companies, memberships, serviceRequestDeclines, serviceRequests, users } from '../db/schema.js';
+import {
+  categories,
+  companies,
+  memberships,
+  serviceRequestDeclines,
+  serviceRequestEvents,
+  serviceRequests,
+  users,
+} from '../db/schema.js';
 import { DATABASE, TenantTransactions, type Database } from '../db/tenant-transactions.js';
 import { ReverseGeocoder } from '../geocoding/reverse-geocoder.js';
 import { NotificationsService } from '../notifications/notifications.service.js';
@@ -654,6 +665,192 @@ export class ServiceRequestsService {
     return admins.map((a) => a.userId);
   }
 
+  /** Cliente cancela (de aberto até a caminho; depois de "chegou", só o admin). */
+  async cancelByClient(clientId: string, serviceRequestId: string, reason: string): Promise<void> {
+    await this.cancel(serviceRequestId, reason, { role: 'client', userId: clientId });
+  }
+
+  /** Admin cancela qualquer pedido que não esteja concluído. */
+  async cancelByAdmin(adminId: string, serviceRequestId: string, reason: string): Promise<void> {
+    await this.cancel(serviceRequestId, reason, { role: 'admin', userId: adminId });
+  }
+
+  private async cancel(
+    serviceRequestId: string,
+    reason: string,
+    actor: { role: 'client' | 'admin' | 'system'; userId: string | null },
+  ): Promise<void> {
+    const tx = this.transactions.current();
+    const [locked] = await tx
+      .select({
+        status: serviceRequests.status,
+        broadcast: serviceRequests.broadcast,
+        clientId: serviceRequests.clientId,
+        providerMembershipId: serviceRequests.providerMembershipId,
+      })
+      .from(serviceRequests)
+      .where(
+        and(eq(serviceRequests.id, serviceRequestId), actor.role === 'client' ? eq(serviceRequests.clientId, actor.userId ?? '') : undefined),
+      )
+      .for('update');
+    if (!locked) throw new NotFoundException();
+    const allowed = actor.role === 'client' ? clientCancellableStatuses.includes(locked.status) : !['completed', 'cancelled'].includes(locked.status);
+    if (!allowed) {
+      throw new ConflictException(
+        actor.role === 'client' && locked.status !== 'completed' && locked.status !== 'cancelled'
+          ? 'O prestador já chegou: só a empresa pode cancelar'
+          : 'Este pedido não pode mais ser cancelado',
+      );
+    }
+
+    // Quem estava envolvido e as listas que mudam, antes de o pedido sair do estado atual.
+    const providerUserId = locked.providerMembershipId ? await this.userOfMembership(locked.providerMembershipId) : null;
+    const eligible = locked.status === 'open' && locked.broadcast ? await this.eligible({ serviceRequestId, broadcastOnly: true }) : [];
+
+    const now = this.clock.now();
+    await tx
+      .update(serviceRequests)
+      .set({ status: 'cancelled', cancelledAt: now, cancelledByRole: actor.role, cancelReason: reason, updatedAt: now })
+      .where(eq(serviceRequests.id, serviceRequestId));
+    await tx.insert(serviceRequestEvents).values({
+      companyId: sql`app.current_company_id()`,
+      serviceRequestId,
+      kind: 'cancellation',
+      byRole: actor.role,
+      byUserId: actor.userId,
+      reason,
+      createdAt: now,
+    });
+
+    const [request] = await this.find(eq(serviceRequests.id, serviceRequestId));
+    const byWhom = { client: 'O cliente', admin: 'A empresa', system: 'A empresa' }[actor.role];
+    const notified = [
+      ...(providerUserId ? [providerUserId] : []),
+      ...(actor.role === 'client' ? [] : [locked.clientId]),
+    ];
+    await this.notifications.notify({
+      userIds: notified,
+      type: 'request_cancelled',
+      title: `Pedido cancelado: ${request.categoryName}`,
+      body: `${byWhom} cancelou · ${reason}`,
+      serviceRequestId,
+    });
+    this.transactions.afterCommit(() => this.tracking.clear(serviceRequestId));
+    this.announceStatus(request, [locked.clientId, ...(providerUserId ? [providerUserId] : [])]);
+    this.announceOpenRequestsChanged([...eligible.map((e) => e.user_id), ...(providerUserId ? [providerUserId] : [])], request.companyId);
+  }
+
+  /** O prestador do pedido desiste (confirmado ou a caminho): volta para aberto e conta como recusa dele. */
+  async withdraw(userId: string, serviceRequestId: string, reason: string): Promise<void> {
+    const membershipId = await this.ownProviderMembership(userId);
+    const [locked] = await this.transactions
+      .current()
+      .select({ status: serviceRequests.status, providerMembershipId: serviceRequests.providerMembershipId })
+      .from(serviceRequests)
+      .where(eq(serviceRequests.id, serviceRequestId))
+      .for('update');
+    if (!locked || locked.providerMembershipId !== membershipId) throw new NotFoundException();
+    if (!withdrawableStatuses.includes(locked.status)) throw new ConflictException('Não dá mais para desistir deste pedido');
+    await this.release(serviceRequestId, { membershipId, userId, reason, byRole: 'provider', byUserId: userId });
+  }
+
+  /** O admin desativou o prestador: os pedidos dele voltam para aberto como desistência "desativado pelo admin". */
+  async releaseProvider(membershipId: string, adminId: string): Promise<void> {
+    const rows = await this.transactions
+      .current()
+      .select({ id: serviceRequests.id })
+      .from(serviceRequests)
+      .where(
+        and(
+          eq(serviceRequests.providerMembershipId, membershipId),
+          inArray(serviceRequests.status, ['assigned', 'awaiting_client', 'confirmed', 'en_route', 'arrived', 'in_progress']),
+        ),
+      )
+      .for('update');
+    if (rows.length === 0) return;
+    const userId = await this.userOfMembership(membershipId);
+    for (const { id } of rows) {
+      await this.release(id, { membershipId, userId, reason: 'desativado pelo admin', byRole: 'admin', byUserId: adminId });
+    }
+  }
+
+  /** Desistência: registra a recusa e o histórico, reabre o pedido e avisa o cliente. */
+  private async release(
+    serviceRequestId: string,
+    who: { membershipId: string; userId: string; reason: string; byRole: 'provider' | 'admin'; byUserId: string },
+  ): Promise<void> {
+    const tx = this.transactions.current();
+    const now = this.clock.now();
+    await tx
+      .insert(serviceRequestDeclines)
+      .values({ companyId: sql`app.current_company_id()`, serviceRequestId, providerMembershipId: who.membershipId, by: 'provider', createdAt: now })
+      .onConflictDoNothing();
+    await tx.insert(serviceRequestEvents).values({
+      companyId: sql`app.current_company_id()`,
+      serviceRequestId,
+      kind: 'withdrawal',
+      byRole: who.byRole,
+      byUserId: who.byUserId,
+      reason: who.reason,
+      createdAt: now,
+    });
+    await this.reopen(serviceRequestId, now);
+    const [request] = await this.find(eq(serviceRequests.id, serviceRequestId));
+    await this.notifications.notify({
+      userIds: [await this.clientOf(serviceRequestId)],
+      type: 'request_withdrawn',
+      title: 'O prestador não vai mais atender',
+      body: `${request.categoryName} · o pedido voltou a ficar aberto`,
+      serviceRequestId,
+    });
+    this.transactions.afterCommit(() => this.tracking.clear(serviceRequestId));
+    await this.afterReopen(request, [who.userId]);
+  }
+
+  /** Empresa desativada: todo pedido não concluído vira `cancelled` com o motivo "empresa desativada". */
+  async cancelAllOfCompany(reason: string): Promise<number> {
+    const rows = await this.transactions
+      .current()
+      .select({ id: serviceRequests.id })
+      .from(serviceRequests)
+      .where(
+        and(
+          eq(serviceRequests.companyId, sql`app.current_company_id()`),
+          inArray(serviceRequests.status, ['open', 'assigned', 'awaiting_client', 'confirmed', 'en_route', 'arrived', 'in_progress']),
+        ),
+      );
+    for (const { id } of rows) await this.cancel(id, reason, { role: 'system', userId: null });
+    return rows.length;
+  }
+
+  /** Histórico de cancelamentos e desistências do pedido, para o admin. */
+  async events(serviceRequestId: string): Promise<RequestEvent[]> {
+    await this.one(serviceRequestId);
+    const rows = await this.transactions
+      .current()
+      .select({
+        kind: serviceRequestEvents.kind,
+        byRole: serviceRequestEvents.byRole,
+        byName: users.name,
+        reason: serviceRequestEvents.reason,
+        createdAt: serviceRequestEvents.createdAt,
+      })
+      .from(serviceRequestEvents)
+      .leftJoin(users, eq(users.id, serviceRequestEvents.byUserId))
+      .where(eq(serviceRequestEvents.serviceRequestId, serviceRequestId))
+      .orderBy(desc(serviceRequestEvents.createdAt));
+    return rows.map((r) => ({ ...r, createdAt: r.createdAt.toISOString() }));
+  }
+
+  private async userOfMembership(membershipId: string): Promise<string> {
+    const [row] = await this.transactions
+      .current()
+      .select({ userId: memberships.userId })
+      .from(memberships)
+      .where(eq(memberships.id, membershipId));
+    return row.userId;
+  }
+
   /** Quem pode acompanhar o pedido pelo socket: o cliente, o prestador do pedido ou um admin da empresa. */
   async canFollow(userId: string, serviceRequestId: string): Promise<boolean> {
     const { rows } = await this.db.execute<{ company_id: string | null }>(
@@ -736,9 +933,13 @@ export class ServiceRequestsService {
 
   private async find(where: SQL | undefined): Promise<ServiceRequest[]> {
     const rows = await this.rows(where);
-    return rows.map(({ location, createdAt, clientPhone: _clientPhone, ...row }) => ({
+    return rows.map(({ location, createdAt, clientPhone: _clientPhone, cancelledAt, cancelledByRole, cancelReason, ...row }) => ({
       ...row,
       location: { latitude: location.y, longitude: location.x },
+      cancellation:
+        row.status === 'cancelled' && cancelledAt && cancelledByRole && cancelledByRole !== 'provider'
+          ? { byRole: cancelledByRole, reason: cancelReason ?? '', at: cancelledAt.toISOString() }
+          : null,
       createdAt: createdAt.toISOString(),
     }));
   }
@@ -759,6 +960,9 @@ export class ServiceRequestsService {
         addressComplement: serviceRequests.addressComplement,
         neighborhood: serviceRequests.neighborhood,
         status: serviceRequests.status,
+        cancelledAt: serviceRequests.cancelledAt,
+        cancelledByRole: serviceRequests.cancelledByRole,
+        cancelReason: serviceRequests.cancelReason,
         // Nome, telefone (só depois da confirmação) e histórico do prestador; a nota entra com as avaliações.
         provider: sql<RequestProvider | null>`app.request_provider(${serviceRequests.id})`,
         createdAt: serviceRequests.createdAt,

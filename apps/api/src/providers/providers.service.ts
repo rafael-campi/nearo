@@ -10,11 +10,15 @@ import {
 import { and, asc, eq, inArray, sql } from 'drizzle-orm';
 import { categories, memberships, providerCategories, providerProfiles, users } from '../db/schema.js';
 import { TenantTransactions } from '../db/tenant-transactions.js';
+import { ServiceRequestsService } from '../service-requests/service-requests.service.js';
 
 /** Prestadores da empresa da transação atual; o RLS restringe à empresa. */
 @Injectable()
 export class ProvidersService {
-  constructor(private readonly transactions: TenantTransactions) {}
+  constructor(
+    private readonly transactions: TenantTransactions,
+    private readonly requests: ServiceRequestsService,
+  ) {}
 
   async list(membershipId?: string): Promise<Provider[]> {
     const tx = this.transactions.current();
@@ -50,12 +54,14 @@ export class ProvidersService {
     }));
   }
 
-  async setActive(membershipId: string, active: boolean): Promise<Provider> {
+  async setActive(membershipId: string, active: boolean, adminId: string): Promise<Provider> {
     await this.transactions
       .current()
       .update(memberships)
       .set({ active })
       .where(and(eq(memberships.id, membershipId), eq(memberships.role, 'provider')));
+    // Prestador desativado deixa os pedidos: voltam para aberto como desistência "desativado pelo admin".
+    if (!active) await this.requests.releaseProvider(membershipId, adminId);
     return this.get(membershipId);
   }
 

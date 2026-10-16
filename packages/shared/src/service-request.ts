@@ -61,6 +61,10 @@ export const serviceRequestSchema = z.object({
   neighborhood: z.string().nullable(),
   status: serviceRequestStatusSchema,
   provider: requestProviderSchema.nullable(),
+  /** Quando o pedido está `cancelled`: quem cancelou e por quê. */
+  cancellation: z
+    .object({ byRole: z.enum(['client', 'admin', 'system']), reason: z.string(), at: z.iso.datetime() })
+    .nullable(),
   createdAt: z.iso.datetime(),
 });
 export type ServiceRequest = z.infer<typeof serviceRequestSchema>;
@@ -158,3 +162,28 @@ export const GPS_INTERVAL_MS = 10_000;
 
 export const sendLocationSchema = coordinatesSchema;
 export type SendLocation = z.infer<typeof sendLocationSchema>;
+
+/** Cancelamento e desistência guardam o motivo (texto livre). */
+export const reasonRequestSchema = z.object({
+  reason: z
+    .string()
+    .trim()
+    .min(3, { error: 'Informe o motivo' })
+    .max(500, { error: 'Use no máximo 500 caracteres' }),
+});
+export type ReasonRequest = z.infer<typeof reasonRequestSchema>;
+
+/** Status em que o cliente ainda pode cancelar: de aberto até a caminho. Depois de "chegou", só o admin. */
+export const clientCancellableStatuses: ServiceRequestStatus[] = ['open', 'assigned', 'awaiting_client', 'confirmed', 'en_route'];
+/** Status em que o prestador pode desistir. */
+export const withdrawableStatuses: ServiceRequestStatus[] = ['confirmed', 'en_route'];
+
+export const requestEventSchema = z.object({
+  kind: z.enum(['cancellation', 'withdrawal']),
+  byRole: z.enum(['client', 'admin', 'provider', 'system']),
+  /** Nome de quem agiu; null quando foi o sistema. */
+  byName: z.string().nullable(),
+  reason: z.string(),
+  createdAt: z.iso.datetime(),
+});
+export type RequestEvent = z.infer<typeof requestEventSchema>;

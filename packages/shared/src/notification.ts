@@ -23,6 +23,10 @@ export const notificationTypeSchema = z.enum([
   'request_status',
   /** Para o cliente: o prestador entrou no raio de aviso (500 m). Uma vez por pedido. */
   'provider_nearby',
+  /** Para quem estava envolvido: o pedido foi cancelado. */
+  'request_cancelled',
+  /** Para o cliente: o prestador desistiu (ou foi desativado) e o pedido voltou para aberto. */
+  'request_withdrawn',
 ]);
 export type NotificationType = z.infer<typeof notificationTypeSchema>;
 

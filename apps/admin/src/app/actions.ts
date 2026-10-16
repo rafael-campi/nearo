@@ -10,6 +10,7 @@ import {
   loginRequestSchema,
   type AcceptInviteResponse,
   type Company,
+  reasonRequestSchema,
   updateCompanySettingsRequestSchema,
   type Invite,
   type MembershipRole,
@@ -166,4 +167,13 @@ export async function assignRequest(requestId: string, providerMembershipId: str
 export async function markNotificationsRead(): Promise<void> {
   await companyApi("/my/notifications/read", { method: "POST" });
   refresh();
+}
+
+export async function cancelRequest(requestId: string, _: FormState, formData: FormData): Promise<FormState> {
+  const input = reasonRequestSchema.safeParse({ reason: formData.get("reason") });
+  if (!input.success) return { message: input.error.issues[0].message, values: { reason: String(formData.get("reason") ?? "") } };
+  const res = await companyApi(`/company/service-requests/${requestId}/admin-cancel`, { method: "POST", body: input.data });
+  if (!res.ok) return { message: errorMessage(res.data, "Não foi possível cancelar") };
+  refresh();
+  return { success: true, message: "Pedido cancelado" };
 }

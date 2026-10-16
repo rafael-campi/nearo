@@ -1,9 +1,10 @@
-import { nextServiceStep, serviceRequestStatusLabel, type OpenServiceRequest, type ProviderServiceRequest } from '@despacho/shared';
+import { nextServiceStep, serviceRequestStatusLabel, withdrawableStatuses, type OpenServiceRequest, type ProviderServiceRequest } from '@despacho/shared';
 import { FlashList } from '@shopify/flash-list';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Stack, useLocalSearchParams } from 'expo-router';
 import { useEffect } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
+import { ReasonAction } from '@/components/reason-action';
 import { colors, ErrorText } from '@/components/ui';
 import { api } from '@/lib/api';
 import { queryKeys } from '@/lib/queries';
@@ -98,6 +99,13 @@ function MyRequests({ companyId, requests }: { companyId: string; requests: Prov
     onSettled: () => queryClient.invalidateQueries({ queryKey: queryKeys.providerRequests(companyId) }),
   });
 
+  const withdraw = useMutation({
+    mutationFn: ({ id, reason }: { id: string; reason: string }) =>
+      api(`/company/service-requests/${id}/withdraw`, { method: 'POST', body: { reason }, companyId }),
+    onSuccess: () => void stopTracking(),
+    onSettled: () => queryClient.invalidateQueries({ queryKey: queryKeys.providerRequests(companyId) }),
+  });
+
   // Garante o envio se o app foi reaberto com um pedido a caminho, e para se o pedido já não está.
   const enRouteId = requests.find((r) => r.status === 'en_route')?.id;
   useEffect(() => {
@@ -147,6 +155,15 @@ function MyRequests({ companyId, requests }: { companyId: string; requests: Prov
             >
               <Text style={styles.primaryText}>{nextServiceStep[r.status]!.label}</Text>
             </Pressable>
+          ) : null}
+          {withdrawableStatuses.includes(r.status) ? (
+            <ReasonAction
+              label="Desistir do pedido"
+              confirmLabel="Confirmar desistência"
+              pending={withdraw.isPending}
+              error={withdraw.error?.message}
+              onSubmit={(reason) => withdraw.mutate({ id: r.id, reason })}
+            />
           ) : null}
         </View>
       ))}

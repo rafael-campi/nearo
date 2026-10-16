@@ -1,4 +1,5 @@
 import {
+  clientCancellableStatuses,
   serviceRequestStatusLabel,
   type MeResponse,
   type ProviderProfile,
@@ -10,6 +11,7 @@ import { router, Stack } from 'expo-router';
 import { useEffect } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
 import { ModeSwitch } from '@/components/mode-switch';
+import { ReasonAction } from '@/components/reason-action';
 import { Button, colors, ErrorText } from '@/components/ui';
 import { api } from '@/lib/api';
 import { useMode } from '@/lib/mode';
@@ -139,6 +141,11 @@ function RequestRow({ request }: { request: ServiceRequest }) {
     api(`/company/service-requests/${request.id}/${path}`, { method: 'POST', companyId: request.companyId });
   const confirm = useMutation({ mutationFn: () => answer('confirm'), onSettled: refresh });
   const refuse = useMutation({ mutationFn: () => answer('decline-provider'), onSettled: refresh });
+  const cancel = useMutation({
+    mutationFn: (reason: string) =>
+      api(`/company/service-requests/${request.id}/cancel`, { method: 'POST', body: { reason }, companyId: request.companyId }),
+    onSettled: refresh,
+  });
   const busy = confirm.isPending || refuse.isPending;
   const error = confirm.error ?? refuse.error;
   const { provider } = request;
@@ -156,6 +163,11 @@ function RequestRow({ request }: { request: ServiceRequest }) {
       <Text style={[styles.detail, searching && styles.searching]}>
         {status} · {requestDate.format(new Date(request.createdAt))}
       </Text>
+      {request.status === 'cancelled' && request.cancellation ? (
+        <Text style={styles.detail}>
+          Cancelado {request.cancellation.byRole === 'client' ? 'por você' : 'pela empresa'}: {request.cancellation.reason}
+        </Text>
+      ) : null}
       {provider ? (
         <Text style={styles.provider}>
           {provider.name} · {provider.completedCount} {provider.completedCount === 1 ? 'pedido concluído' : 'pedidos concluídos'}
@@ -197,6 +209,9 @@ function RequestRow({ request }: { request: ServiceRequest }) {
             </Pressable>
           </View>
         </>
+      ) : null}
+      {clientCancellableStatuses.includes(request.status) ? (
+        <ReasonAction label="Cancelar pedido" confirmLabel="Confirmar cancelamento" pending={cancel.isPending} error={cancel.error?.message} onSubmit={(reason) => cancel.mutate(reason)} />
       ) : null}
     </View>
   );

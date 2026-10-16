@@ -5,6 +5,7 @@ import { newJoinCode } from '../auth/crypto.js';
 import { companies } from '../db/schema.js';
 import { DATABASE, TenantTransactions, type Database } from '../db/tenant-transactions.js';
 import { InvitesService } from '../invites/invites.service.js';
+import { ServiceRequestsService } from '../service-requests/service-requests.service.js';
 
 @Injectable()
 export class CompaniesService {
@@ -12,6 +13,7 @@ export class CompaniesService {
     @Inject(DATABASE) private readonly db: Database,
     private readonly transactions: TenantTransactions,
     private readonly invites: InvitesService,
+    private readonly requests: ServiceRequestsService,
   ) {}
 
   /** A empresa da transação atual. */
@@ -34,6 +36,18 @@ export class CompaniesService {
       .returning({ id: companies.id, name: companies.name, assignmentMode: companies.assignmentMode });
     if (!company) throw new NotFoundException();
     return company;
+  }
+
+  /**
+   * Operação de plataforma (script `company:deactivate`): a empresa deixa de funcionar e os pedidos não
+   * concluídos viram `cancelled` com o motivo "empresa desativada". Devolve quantos pedidos cancelou.
+   */
+  async deactivate(companyId: string): Promise<number> {
+    return this.transactions.run({ userId: '', companyId }, async (tx) => {
+      const updated = await tx.update(companies).set({ active: false }).where(eq(companies.id, companyId)).returning({ id: companies.id });
+      if (updated.length === 0) throw new NotFoundException();
+      return this.requests.cancelAllOfCompany('empresa desativada');
+    });
   }
 
   async joinCode(): Promise<JoinCodeResponse> {

@@ -24,7 +24,8 @@
     "typecheck": "tsc --noEmit",
     "db:migrate": "drizzle-kit migrate",
     "db:generate": "drizzle-kit generate",
-    "company:create": "nest build && node dist/scripts/create-company.js"
+    "company:create": "nest build && node dist/scripts/create-company.js",
+    "company:deactivate": "nest build && node dist/scripts/deactivate-company.js"
   },
   "dependencies": {
     "@despacho/shared": "workspace:*",

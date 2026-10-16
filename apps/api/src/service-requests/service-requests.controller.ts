@@ -4,9 +4,12 @@ import {
   sendLocationSchema,
   assignServiceRequestSchema,
   createServiceRequestSchema,
+  reasonRequestSchema,
   type AcceptServiceRequestResponse,
   type AdvanceServiceRequest,
   type ProviderLocation,
+  type ReasonRequest,
+  type RequestEvent,
   type SendLocation,
   type AssignServiceRequest,
   type CategoryOption,
@@ -143,6 +146,45 @@ export class ServiceRequestsController {
     @Param('id', new ParseUUIDPipe({ errorHttpStatusCode: 404 })) id: string,
   ): Promise<ProviderLocation | null> {
     return this.tracking.lastFor(tenant.userId, id);
+  }
+
+  @CompanyRoles('client')
+  @Post('company/service-requests/:id/cancel')
+  @HttpCode(204)
+  cancel(
+    @Tenant() tenant: TenantContext,
+    @Param('id', new ParseUUIDPipe({ errorHttpStatusCode: 404 })) id: string,
+    @Body(new ZodPipe(reasonRequestSchema)) body: ReasonRequest,
+  ): Promise<void> {
+    return this.requests.cancelByClient(tenant.userId, id, body.reason);
+  }
+
+  @CompanyRoles('admin')
+  @Post('company/service-requests/:id/admin-cancel')
+  @HttpCode(204)
+  adminCancel(
+    @Tenant() tenant: TenantContext,
+    @Param('id', new ParseUUIDPipe({ errorHttpStatusCode: 404 })) id: string,
+    @Body(new ZodPipe(reasonRequestSchema)) body: ReasonRequest,
+  ): Promise<void> {
+    return this.requests.cancelByAdmin(tenant.userId, id, body.reason);
+  }
+
+  @CompanyRoles('provider')
+  @Post('company/service-requests/:id/withdraw')
+  @HttpCode(204)
+  withdraw(
+    @Tenant() tenant: TenantContext,
+    @Param('id', new ParseUUIDPipe({ errorHttpStatusCode: 404 })) id: string,
+    @Body(new ZodPipe(reasonRequestSchema)) body: ReasonRequest,
+  ): Promise<void> {
+    return this.requests.withdraw(tenant.userId, id, body.reason);
+  }
+
+  @CompanyRoles('admin')
+  @Get('company/service-requests/:id/events')
+  events(@Param('id', new ParseUUIDPipe({ errorHttpStatusCode: 404 })) id: string): Promise<RequestEvent[]> {
+    return this.requests.events(id);
   }
 
   @CompanyRoles('client')

@@ -29,10 +29,11 @@ export class ProvidersController {
   @CompanyRoles('admin')
   @Patch('providers/:membershipId')
   update(
+    @Tenant() tenant: TenantContext,
     @Param('membershipId', membershipIdPipe) membershipId: string,
     @Body(new ZodPipe(updateProviderRequestSchema)) body: UpdateProviderRequest,
   ): Promise<Provider> {
-    return this.providers.setActive(membershipId, body.active);
+    return this.providers.setActive(membershipId, body.active, tenant.userId);
   }
 
   @CompanyRoles('admin')

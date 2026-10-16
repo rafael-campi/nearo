@@ -30,6 +30,8 @@ export const users = pgTable('users', {
   passwordHash: text('password_hash').notNull(),
   /** Só dígitos, com DDD. Opcional; é mostrado ao outro lado só depois da confirmação do pedido. */
   phone: text('phone'),
+  /** Conta excluída: os dados pessoais foram apagados e o histórico passou a mostrar "Usuário removido". */
+  deletedAt: timestamp('deleted_at', { withTimezone: true }),
   createdAt: createdAt(),
 });
 

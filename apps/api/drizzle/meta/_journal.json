@@ -246,6 +246,20 @@
       "when": 1792146725133,
       "tag": "0034_device_tokens_rls",
       "breakpoints": true
+    },
+    {
+      "idx": 35,
+      "version": "7",
+      "when": 1792147014859,
+      "tag": "0035_user_deleted_at",
+      "breakpoints": true
+    },
+    {
+      "idx": 36,
+      "version": "7",
+      "when": 1792147015659,
+      "tag": "0036_account_deletion",
+      "breakpoints": true
     }
   ]
 }

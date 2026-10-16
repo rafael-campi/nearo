@@ -42,3 +42,7 @@ export const meResponseSchema = z.object({
   ),
 });
 export type MeResponse = z.infer<typeof meResponseSchema>;
+
+/** Exclusão da própria conta: pede a senha para confirmar. */
+export const deleteAccountRequestSchema = z.object({ password: z.string().min(1, { error: 'Informe sua senha' }) });
+export type DeleteAccountRequest = z.infer<typeof deleteAccountRequestSchema>;

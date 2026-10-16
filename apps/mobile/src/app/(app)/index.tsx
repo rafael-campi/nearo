@@ -84,6 +84,9 @@ export default function HomeScreen() {
         <Button variant="link" onPress={signOut}>
           Sair
         </Button>
+        <Button variant="link" onPress={() => router.push('/account/delete')}>
+          Excluir minha conta
+        </Button>
       </View>
     </View>
   );

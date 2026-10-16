@@ -1,7 +1,9 @@
-import { Body, Controller, Get, HttpCode, Post, Req } from '@nestjs/common';
+import { Body, Controller, Delete, Get, HttpCode, Post, Req } from '@nestjs/common';
 import {
+  deleteAccountRequestSchema,
   loginRequestSchema,
   signupRequestSchema,
+  type DeleteAccountRequest,
   type LoginRequest,
   type MeResponse,
   type SessionResponse,
@@ -10,6 +12,7 @@ import {
 import { ZodPipe } from '../common/zod.pipe.js';
 import type { TenantContext } from '../db/tenant-transactions.js';
 import type { AuthenticatedRequest } from './auth.guard.js';
+import { AccountService } from './account.service.js';
 import { AuthService } from './auth.service.js';
 import { Public, Tenant } from './decorators.js';
 import { SessionsService } from './sessions.service.js';
@@ -19,6 +22,7 @@ export class AuthController {
   constructor(
     private readonly auth: AuthService,
     private readonly sessions: SessionsService,
+    private readonly account: AccountService,
   ) {}
 
   @Public()
@@ -38,6 +42,16 @@ export class AuthController {
   @HttpCode(204)
   async logout(@Req() req: AuthenticatedRequest): Promise<void> {
     if (req.sessionToken) await this.sessions.revoke(req.sessionToken);
+  }
+
+  /** Exclui a própria conta (pede a senha). Bloqueada com pedido aberto ou ativo. */
+  @Delete('my/account')
+  @HttpCode(204)
+  async deleteAccount(
+    @Tenant() tenant: TenantContext,
+    @Body(new ZodPipe(deleteAccountRequestSchema)) body: DeleteAccountRequest,
+  ): Promise<void> {
+    await this.account.delete(tenant.userId, body.password);
   }
 
   @Get('me')

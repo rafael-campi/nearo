@@ -5,13 +5,13 @@ import {
   type UpdateProviderSettingsRequest,
 } from '@despacho/shared';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import * as Location from 'expo-location';
 import { Stack, useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Switch, Text, View } from 'react-native';
-import { BaseLocationMap } from '@/components/base-location-map';
+import { LocationPicker } from '@/components/location-picker';
 import { Button, colors, ErrorText } from '@/components/ui';
 import { api } from '@/lib/api';
+import { currentLocation } from '@/lib/location';
 import { queryKeys } from '@/lib/queries';
 
 const RADIUS_OPTIONS = [5, 10, 20, 30, 50];
@@ -62,20 +62,11 @@ function SettingsForm({
 
   const useCurrentLocation = async () => {
     setLocating(true);
-    try {
-      const { status } = await Location.requestForegroundPermissionsAsync();
-      if (status !== 'granted') {
-        setError('Sem permissão de localização. Marque o ponto no mapa.');
-        return;
-      }
-      const position = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
-      setBaseLocation({ latitude: position.coords.latitude, longitude: position.coords.longitude });
-      setSaved(false);
-    } catch {
-      setError('Não foi possível obter sua localização. Marque o ponto no mapa.');
-    } finally {
-      setLocating(false);
-    }
+    const location = await currentLocation();
+    setLocating(false);
+    if (!location) return setError('Não foi possível obter sua localização. Marque o ponto no mapa.');
+    setBaseLocation(location);
+    setSaved(false);
   };
 
   const hasBase = profile.baseLocation !== null;
@@ -110,7 +101,7 @@ function SettingsForm({
             ? 'O ponto de onde você sai para atender. Toque no mapa ou arraste o pino para mudar.'
             : 'Marque no mapa de onde você sai para atender. Sem isso, você não recebe pedidos.'}
         </Text>
-        <BaseLocationMap value={baseLocation} radiusKm={radiusKm} onChange={(v) => (setBaseLocation(v), setSaved(false))} />
+        <LocationPicker value={baseLocation} radiusKm={radiusKm} onChange={(v) => (setBaseLocation(v), setSaved(false))} />
         <Button variant="link" onPress={useCurrentLocation} loading={locating}>
           Usar minha localização
         </Button>

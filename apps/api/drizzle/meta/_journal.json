@@ -71,6 +71,20 @@
       "when": 1792120086603,
       "tag": "0009_provider_profiles_rls",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1792120548201,
+      "tag": "0010_service_requests",
+      "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1792120549057,
+      "tag": "0011_service_requests_rls",
+      "breakpoints": true
     }
   ]
 }

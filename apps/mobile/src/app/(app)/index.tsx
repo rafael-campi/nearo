@@ -1,4 +1,9 @@
-import type { MeResponse, ProviderProfile } from '@despacho/shared';
+import {
+  serviceRequestStatusLabel,
+  type MeResponse,
+  type ProviderProfile,
+  type ServiceRequest,
+} from '@despacho/shared';
 import { FlashList } from '@shopify/flash-list';
 import { useQuery } from '@tanstack/react-query';
 import { router, Stack } from 'expo-router';
@@ -30,6 +35,15 @@ export default function HomeScreen() {
   // Quem é prestador começa no modo prestador; a escolha vale até sair.
   const mode = isProvider ? (chosenMode ?? 'provider') : 'client';
   const companies = memberships.filter((m) => m.role === mode);
+  const requests = useQuery({
+    queryKey: queryKeys.myRequests,
+    queryFn: () => api<ServiceRequest[]>('/my/service-requests'),
+    enabled: mode === 'client',
+  });
+  const items: Item[] =
+    mode === 'provider'
+      ? companies.map((membership) => ({ kind: 'provider-company', membership }))
+      : clientItems(requests.data ?? [], companies);
 
   return (
     <View style={styles.container}>
@@ -43,8 +57,9 @@ export default function HomeScreen() {
         </View>
       ) : (
         <FlashList
-          data={companies}
-          keyExtractor={(item) => `${item.role}:${item.companyId}`}
+          data={items}
+          keyExtractor={itemKey}
+          getItemType={(item) => item.kind}
           ListHeaderComponent={<Text style={styles.greeting}>Olá, {me.data.user.name}</Text>}
           ListEmptyComponent={
             <Text style={styles.empty}>
@@ -53,9 +68,7 @@ export default function HomeScreen() {
                 : 'Você ainda não está em nenhuma empresa. Peça o código de acesso à empresa que vai atender você.'}
             </Text>
           }
-          renderItem={({ item }) =>
-            mode === 'provider' ? <ProviderCompany membership={item} /> : <ClientCompany membership={item} />
-          }
+          renderItem={({ item }) => <HomeItem item={item} />}
         />
       )}
       <View style={styles.footer}>
@@ -68,10 +81,88 @@ export default function HomeScreen() {
   );
 }
 
+type Item =
+  | { kind: 'header'; title: string }
+  | { kind: 'request'; request: ServiceRequest }
+  | { kind: 'client-company'; membership: Membership }
+  | { kind: 'provider-company'; membership: Membership };
+
+/** Modo cliente: "Meus pedidos" (se houver) e "Minhas empresas". */
+function clientItems(requests: ServiceRequest[], companies: Membership[]): Item[] {
+  if (companies.length === 0) return [];
+  return [
+    ...(requests.length > 0
+      ? [{ kind: 'header', title: 'Meus pedidos' } as const, ...requests.map((request) => ({ kind: 'request', request }) as const)]
+      : []),
+    { kind: 'header', title: 'Minhas empresas' },
+    ...companies.map((membership) => ({ kind: 'client-company', membership }) as const),
+  ];
+}
+
+function itemKey(item: Item): string {
+  switch (item.kind) {
+    case 'header':
+      return `header:${item.title}`;
+    case 'request':
+      return `request:${item.request.id}`;
+    default:
+      return `${item.kind}:${item.membership.companyId}`;
+  }
+}
+
+function HomeItem({ item }: { item: Item }) {
+  switch (item.kind) {
+    case 'header':
+      return (
+        <Text style={styles.sectionTitle} accessibilityRole="header">
+          {item.title}
+        </Text>
+      );
+    case 'request':
+      return <RequestRow request={item.request} />;
+    case 'client-company':
+      return <ClientCompany membership={item.membership} />;
+    case 'provider-company':
+      return <ProviderCompany membership={item.membership} />;
+  }
+}
+
+const requestDate = new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
+
+function RequestRow({ request }: { request: ServiceRequest }) {
+  const status = request.status === 'open' ? 'Procurando prestador' : serviceRequestStatusLabel[request.status];
+  return (
+    <View style={styles.company} accessibilityLabel={`Pedido de ${request.categoryName}: ${status}`}>
+      <Text style={styles.companyName}>
+        {request.categoryName} · {request.companyName}
+      </Text>
+      <Text style={styles.detail} numberOfLines={2}>
+        {request.description}
+      </Text>
+      <Text style={[styles.detail, request.status === 'open' && styles.searching]}>
+        {status} · {requestDate.format(new Date(request.createdAt))}
+      </Text>
+    </View>
+  );
+}
+
 function ClientCompany({ membership }: { membership: Membership }) {
   return (
-    <View style={styles.company}>
-      <Text style={styles.companyName}>{membership.companyName}</Text>
+    <View style={[styles.company, styles.companyRow]}>
+      <Text style={[styles.companyName, { flex: 1 }]}>{membership.companyName}</Text>
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel={`Pedir serviço a ${membership.companyName}`}
+        onPress={() =>
+          router.push({
+            pathname: '/request/new',
+            params: { companyId: membership.companyId, companyName: membership.companyName },
+          })
+        }
+        style={({ pressed }) => [styles.smallButton, pressed && { opacity: 0.7 }]}
+      >
+        <Text style={styles.smallButtonText}>Pedir serviço</Text>
+      </Pressable>
     </View>
   );
 }
@@ -143,6 +234,11 @@ const styles = StyleSheet.create({
   },
   companyName: { fontSize: 16, fontWeight: '600', color: colors.text },
   detail: { fontSize: 14, color: colors.muted },
+  sectionTitle: { fontSize: 13, fontWeight: '700', color: colors.muted, textTransform: 'uppercase', letterSpacing: 0.5, paddingHorizontal: 24, paddingTop: 16, paddingBottom: 8 },
+  searching: { color: '#b45309', fontWeight: '600' },
+  companyRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  smallButton: { backgroundColor: colors.primary, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 8 },
+  smallButtonText: { color: colors.onPrimary, fontSize: 14, fontWeight: '600' },
   available: { color: '#059669', fontWeight: '600' },
   warning: { fontSize: 14, color: '#b45309', fontWeight: '600' },
   footer: { padding: 24, gap: 4 },

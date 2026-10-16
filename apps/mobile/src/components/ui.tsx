@@ -44,7 +44,7 @@ export function Title({ children, subtitle }: { children: ReactNode; subtitle?: 
   );
 }
 
-export function Field({ label, ...props }: { label: string } & TextInputProps) {
+export function Field({ label, style, ...props }: { label: string } & TextInputProps) {
   return (
     <View style={styles.field}>
       <Text style={styles.label} nativeID={`label-${label}`}>
@@ -54,7 +54,7 @@ export function Field({ label, ...props }: { label: string } & TextInputProps) {
         accessibilityLabel={label}
         accessibilityLabelledBy={`label-${label}`}
         placeholderTextColor={colors.muted}
-        style={styles.input}
+        style={[styles.input, style]}
         {...props}
       />
     </View>

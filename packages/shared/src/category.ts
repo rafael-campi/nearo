@@ -27,3 +27,7 @@ export const updateCategoryRequestSchema = z
     error: 'Nada para alterar',
   });
 export type UpdateCategoryRequest = z.infer<typeof updateCategoryRequestSchema>;
+
+/** Categoria como opção para quem pede ou atende (só ativas). */
+export const categoryOptionSchema = categorySchema.pick({ id: true, name: true });
+export type CategoryOption = z.infer<typeof categoryOptionSchema>;

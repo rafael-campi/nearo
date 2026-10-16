@@ -3,13 +3,13 @@ import { useState } from 'react';
 import { Text, View } from 'react-native';
 import { colors, Field } from './ui';
 
-type Props = { value: Coordinates | null; radiusKm: number; onChange: (value: Coordinates) => void };
+type Props = { value: Coordinates | null; radiusKm?: number; onChange: (value: Coordinates) => void };
 
 /**
  * Versão web (só desenvolvimento e testes automatizados): react-native-maps não roda no navegador,
  * então o ponto é informado por latitude e longitude, aplicadas ao sair do campo.
  */
-export function BaseLocationMap({ value, onChange }: Props) {
+export function LocationPicker({ value, onChange }: Props) {
   // Remonta quando o ponto muda por fora (ex.: "Usar minha localização").
   return <CoordinateFields key={value ? `${value.latitude},${value.longitude}` : 'vazio'} value={value} onChange={onChange} />;
 }

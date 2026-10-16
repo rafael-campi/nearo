@@ -4,6 +4,7 @@ import { getCurrentCompany } from "@/lib/dal";
 import { logout } from "../actions";
 
 const nav = [
+  { href: "/requests", label: "Pedidos" },
   { href: "/categories", label: "Categorias" },
   { href: "/providers", label: "Prestadores" },
   { href: "/clients", label: "Clientes" },

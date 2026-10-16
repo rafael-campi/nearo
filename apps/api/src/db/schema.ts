@@ -128,3 +128,36 @@ export const providerProfiles = pgTable('provider_profiles', {
   available: boolean('available').notNull().default(false),
   updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
 });
+
+export const serviceRequestStatus = pgEnum('service_request_status', [
+  'open',
+  'assigned',
+  'awaiting_client',
+  'confirmed',
+  'en_route',
+  'arrived',
+  'in_progress',
+  'completed',
+  'cancelled',
+]);
+
+/** Pedido: solicitação de serviço de um cliente para uma empresa, numa categoria. */
+export const serviceRequests = pgTable('service_requests', {
+  id: id(),
+  companyId: uuid('company_id')
+    .notNull()
+    .references(() => companies.id, { onDelete: 'cascade' }),
+  clientId: uuid('client_id')
+    .notNull()
+    .references(() => users.id),
+  categoryId: uuid('category_id')
+    .notNull()
+    .references(() => categories.id),
+  description: text('description').notNull(),
+  location: geometry('location', { type: 'point', mode: 'xy', srid: 4326 }).notNull(),
+  addressComplement: text('address_complement').notNull().default(''),
+  neighborhood: text('neighborhood'),
+  status: serviceRequestStatus('status').notNull().default('open'),
+  createdAt: createdAt(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+});

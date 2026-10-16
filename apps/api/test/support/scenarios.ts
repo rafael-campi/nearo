@@ -20,6 +20,7 @@ export async function createScenario(): Promise<Scenario> {
     databaseUrl: testEnv.MIGRATION_DATABASE_URL,
     clock: api.clock,
     mailer: api.mailer,
+    geocoder: api.geocoder,
   });
   return {
     ...api,
@@ -77,4 +78,22 @@ export async function providerOf(
     .send({ name, password: 'senha-prestador' })
     .expect(200);
   return res.body.token;
+}
+
+/** Cliente cadastrado e já dentro da empresa; devolve o token. */
+export async function clientOf(
+  s: TestApp,
+  admin: { token: string; companyId: string },
+  name: string,
+  email: string,
+): Promise<string> {
+  const token = await signupClient(s, name, email);
+  const code = await joinCodeOf(s, admin);
+  await http(s).post('/join').set(asUser(token)).send({ code }).expect(200);
+  return token;
+}
+
+export async function categoryOf(s: TestApp, admin: { token: string; companyId: string }, name: string): Promise<string> {
+  const res = await http(s).post('/company/categories').set(asUser(admin.token, admin.companyId)).send({ name }).expect(201);
+  return res.body.id;
 }

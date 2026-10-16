@@ -1,11 +1,13 @@
 import { Body, Controller, Get, Param, ParseUUIDPipe, Patch, Put } from '@nestjs/common';
 import {
   setProviderCategoriesRequestSchema,
+  updateProviderSettingsRequestSchema,
   updateProviderRequestSchema,
   type Provider,
   type ProviderProfile,
   type SetProviderCategoriesRequest,
   type UpdateProviderRequest,
+  type UpdateProviderSettingsRequest,
 } from '@despacho/shared';
 import { CompanyRoles, Tenant } from '../auth/decorators.js';
 import { ZodPipe } from '../common/zod.pipe.js';
@@ -46,5 +48,14 @@ export class ProvidersController {
   @Get('provider-profile')
   profile(@Tenant() tenant: TenantContext): Promise<ProviderProfile> {
     return this.providers.profile(tenant.userId);
+  }
+
+  @CompanyRoles('provider')
+  @Patch('provider-profile')
+  updateSettings(
+    @Tenant() tenant: TenantContext,
+    @Body(new ZodPipe(updateProviderSettingsRequestSchema)) body: UpdateProviderSettingsRequest,
+  ): Promise<ProviderProfile> {
+    return this.providers.updateSettings(tenant.userId, body);
   }
 }

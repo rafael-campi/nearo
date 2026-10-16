@@ -20,6 +20,7 @@ export function ProviderRow({ provider, categories }: { provider: Provider; cate
         <div className={`flex-1 ${provider.active ? "" : "text-zinc-400"}`}>
           <p className="text-sm font-medium">{provider.name}</p>
           <p className="text-sm text-zinc-500">{provider.email}</p>
+          <ProviderSettingsSummary provider={provider} />
         </div>
         {!provider.active && (
           <span className="rounded-full bg-zinc-100 px-2 py-0.5 text-xs text-zinc-500 dark:bg-zinc-800">Desativado</span>
@@ -65,5 +66,32 @@ export function ProviderRow({ provider, categories }: { provider: Provider; cate
         </form>
       )}
     </li>
+  );
+}
+
+function ProviderSettingsSummary({ provider }: { provider: Provider }) {
+  const base = provider.baseLocation;
+  return (
+    <p className="mt-1 flex flex-wrap items-center gap-x-2 text-xs text-zinc-500">
+      <span className={provider.available ? "font-medium text-emerald-600" : ""}>
+        {provider.available ? "Disponível" : "Indisponível"}
+      </span>
+      <span aria-hidden>·</span>
+      {base ? (
+        <>
+          <span>Atende até {provider.serviceRadiusKm} km de</span>
+          <a
+            href={`https://www.openstreetmap.org/?mlat=${base.latitude}&mlon=${base.longitude}#map=15/${base.latitude}/${base.longitude}`}
+            target="_blank"
+            rel="noreferrer"
+            className="underline underline-offset-2 hover:text-zinc-900 dark:hover:text-zinc-100"
+          >
+            endereço-base
+          </a>
+        </>
+      ) : (
+        <span>Sem endereço-base (não recebe pedidos)</span>
+      )}
+    </p>
   );
 }

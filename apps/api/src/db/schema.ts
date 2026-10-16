@@ -3,6 +3,8 @@
 import { sql } from 'drizzle-orm';
 import {
   boolean,
+  doublePrecision,
+  geometry,
   pgEnum,
   pgTable,
   primaryKey,
@@ -109,3 +111,20 @@ export const providerCategories = pgTable(
   },
   (t) => [primaryKey({ columns: [t.membershipId, t.categoryId] })],
 );
+
+/**
+ * Atuação do prestador numa empresa: endereço-base, raio da área de atendimento e disponível.
+ * Criada no primeiro ajuste do prestador; sem linha = sem endereço-base e indisponível.
+ */
+export const providerProfiles = pgTable('provider_profiles', {
+  membershipId: uuid('membership_id')
+    .primaryKey()
+    .references(() => memberships.id, { onDelete: 'cascade' }),
+  companyId: uuid('company_id')
+    .notNull()
+    .references(() => companies.id, { onDelete: 'cascade' }),
+  baseLocation: geometry('base_location', { type: 'point', mode: 'xy', srid: 4326 }),
+  serviceRadiusKm: doublePrecision('service_radius_km').notNull().default(20),
+  available: boolean('available').notNull().default(false),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+});

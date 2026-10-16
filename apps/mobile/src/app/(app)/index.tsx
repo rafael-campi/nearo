@@ -3,7 +3,7 @@ import { FlashList } from '@shopify/flash-list';
 import { useQuery } from '@tanstack/react-query';
 import { router, Stack } from 'expo-router';
 import { useEffect } from 'react';
-import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
 import { ModeSwitch } from '@/components/mode-switch';
 import { Button, colors, ErrorText } from '@/components/ui';
 import { api } from '@/lib/api';
@@ -77,22 +77,53 @@ function ClientCompany({ membership }: { membership: Membership }) {
 }
 
 function ProviderCompany({ membership }: { membership: Membership }) {
+  const promptedBaseLocation = useMode((s) => s.promptedBaseLocation);
+  const markPromptedBaseLocation = useMode((s) => s.markPromptedBaseLocation);
   const profile = useQuery({
     queryKey: queryKeys.providerProfile(membership.companyId),
     queryFn: () => api<ProviderProfile>('/company/provider-profile', { companyId: membership.companyId }),
   });
+  const settings = {
+    pathname: '/provider/[companyId]' as const,
+    params: { companyId: membership.companyId, companyName: membership.companyName },
+  };
+  const missingBase = profile.data?.baseLocation === null;
+
+  // Primeiro acesso sem endereço-base: abre o cadastro uma vez por sessão.
+  useEffect(() => {
+    if (missingBase && !promptedBaseLocation) {
+      markPromptedBaseLocation();
+      router.push(settings);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [missingBase, promptedBaseLocation]);
+
   const names = profile.data?.categories.map((c) => c.name) ?? [];
   return (
-    <View style={styles.company}>
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={`Atuação em ${membership.companyName}`}
+      onPress={() => router.push(settings)}
+      style={({ pressed }) => [styles.company, pressed && { opacity: 0.7 }]}
+    >
       <Text style={styles.companyName}>{membership.companyName}</Text>
       <Text style={styles.detail}>
         {profile.isPending
-          ? 'Carregando categorias…'
+          ? 'Carregando…'
           : names.length > 0
             ? names.join(' · ')
             : 'Nenhuma categoria atribuída ainda. Fale com a empresa.'}
       </Text>
-    </View>
+      {profile.data ? (
+        missingBase ? (
+          <Text style={styles.warning}>Cadastre seu endereço-base para receber pedidos</Text>
+        ) : (
+          <Text style={[styles.detail, profile.data.available && styles.available]}>
+            {profile.data.available ? 'Disponível' : 'Indisponível'} · até {profile.data.serviceRadiusKm} km
+          </Text>
+        )
+      ) : null}
+    </Pressable>
   );
 }
 
@@ -112,5 +143,7 @@ const styles = StyleSheet.create({
   },
   companyName: { fontSize: 16, fontWeight: '600', color: colors.text },
   detail: { fontSize: 14, color: colors.muted },
+  available: { color: '#059669', fontWeight: '600' },
+  warning: { fontSize: 14, color: '#b45309', fontWeight: '600' },
   footer: { padding: 24, gap: 4 },
 });

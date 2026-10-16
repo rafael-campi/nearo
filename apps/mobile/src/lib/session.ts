@@ -30,7 +30,7 @@ export const useSession = create<SessionState>((set) => ({
   async signOut() {
     await tokenStorage.clear();
     queryClient.clear();
-    useMode.setState({ mode: null });
+    useMode.setState({ mode: null, promptedBaseLocation: false });
     set({ token: null, status: 'signedOut' });
   },
   setPendingJoinCode(code) {

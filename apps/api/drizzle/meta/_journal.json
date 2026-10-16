@@ -57,6 +57,20 @@
       "when": 1792119662142,
       "tag": "0007_provider_categories_rls",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1792120077996,
+      "tag": "0008_provider_profiles",
+      "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1792120086603,
+      "tag": "0009_provider_profiles_rls",
+      "breakpoints": true
     }
   ]
 }

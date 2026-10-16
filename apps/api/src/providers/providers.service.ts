@@ -1,7 +1,14 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
-import type { Provider, ProviderProfile } from '@despacho/shared';
+import {
+  DEFAULT_SERVICE_RADIUS_KM,
+  type Coordinates,
+  type Provider,
+  type ProviderProfile,
+  type ProviderSettings,
+  type UpdateProviderSettingsRequest,
+} from '@despacho/shared';
 import { and, asc, eq, inArray, sql } from 'drizzle-orm';
-import { categories, memberships, providerCategories, users } from '../db/schema.js';
+import { categories, memberships, providerCategories, providerProfiles, users } from '../db/schema.js';
 import { TenantTransactions } from '../db/tenant-transactions.js';
 
 /** Prestadores da empresa da transação atual; o RLS restringe à empresa. */
@@ -12,9 +19,16 @@ export class ProvidersService {
   async list(membershipId?: string): Promise<Provider[]> {
     const tx = this.transactions.current();
     const rows = await tx
-      .select({ membershipId: memberships.id, name: users.name, email: users.email, active: memberships.active })
+      .select({
+        membershipId: memberships.id,
+        name: users.name,
+        email: users.email,
+        active: memberships.active,
+        ...settingsColumns,
+      })
       .from(memberships)
       .innerJoin(users, eq(users.id, memberships.userId))
+      .leftJoin(providerProfiles, eq(providerProfiles.membershipId, memberships.id))
       .where(
         and(
           eq(memberships.companyId, sql`app.current_company_id()`),
@@ -29,8 +43,9 @@ export class ProvidersService {
       .select({ membershipId: providerCategories.membershipId, categoryId: providerCategories.categoryId })
       .from(providerCategories)
       .where(inArray(providerCategories.membershipId, rows.map((r) => r.membershipId)));
-    return rows.map((row) => ({
+    return rows.map(({ baseLocation, serviceRadiusKm, available, ...row }) => ({
       ...row,
+      ...toSettings({ baseLocation, serviceRadiusKm, available }),
       categoryIds: links.filter((l) => l.membershipId === row.membershipId).map((l) => l.categoryId),
     }));
   }
@@ -64,8 +79,15 @@ export class ProvidersService {
     return this.get(membershipId);
   }
 
-  /** O próprio prestador: as categorias ativas que atende nesta empresa. */
+  /** O próprio prestador: atuação e categorias ativas nesta empresa. */
   async profile(userId: string): Promise<ProviderProfile> {
+    const membershipId = await this.ownMembershipId(userId);
+    const [settings] = await this.transactions
+      .current()
+      .select(settingsColumns)
+      .from(memberships)
+      .leftJoin(providerProfiles, eq(providerProfiles.membershipId, memberships.id))
+      .where(eq(memberships.id, membershipId));
     const rows = await this.transactions
       .current()
       .select({ id: categories.id, name: categories.name })
@@ -74,7 +96,47 @@ export class ProvidersService {
       .innerJoin(categories, eq(categories.id, providerCategories.categoryId))
       .where(and(eq(memberships.userId, userId), eq(memberships.role, 'provider'), eq(categories.active, true)))
       .orderBy(asc(sql`lower(${categories.name})`));
-    return { categories: rows };
+    return { ...toSettings(settings), categories: rows };
+  }
+
+  /** O próprio prestador ajusta endereço-base, raio e disponível. Sem endereço-base, não fica disponível. */
+  async updateSettings(userId: string, body: UpdateProviderSettingsRequest): Promise<ProviderProfile> {
+    const membershipId = await this.ownMembershipId(userId);
+    const current = await this.profile(userId);
+    if (body.available && !(body.baseLocation ?? current.baseLocation)) {
+      throw new BadRequestException({
+        message: 'Dados inválidos',
+        issues: [{ path: 'available', message: 'Cadastre seu endereço-base antes de ficar disponível' }],
+      });
+    }
+    const changes = {
+      ...(body.baseLocation && { baseLocation: toPoint(body.baseLocation) }),
+      ...(body.serviceRadiusKm !== undefined && { serviceRadiusKm: body.serviceRadiusKm }),
+      ...(body.available !== undefined && { available: body.available }),
+      updatedAt: sql`now()`,
+    };
+    await this.transactions
+      .current()
+      .insert(providerProfiles)
+      .values({ membershipId, companyId: sql`app.current_company_id()`, ...changes })
+      .onConflictDoUpdate({ target: providerProfiles.membershipId, set: changes });
+    return this.profile(userId);
+  }
+
+  private async ownMembershipId(userId: string): Promise<string> {
+    const [membership] = await this.transactions
+      .current()
+      .select({ id: memberships.id })
+      .from(memberships)
+      .where(
+        and(
+          eq(memberships.companyId, sql`app.current_company_id()`),
+          eq(memberships.userId, userId),
+          eq(memberships.role, 'provider'),
+        ),
+      );
+    if (!membership) throw new NotFoundException();
+    return membership.id;
   }
 
   private async get(membershipId: string): Promise<Provider> {
@@ -82,4 +144,29 @@ export class ProvidersService {
     if (!provider) throw new NotFoundException();
     return provider;
   }
+}
+
+const settingsColumns = {
+  baseLocation: providerProfiles.baseLocation,
+  serviceRadiusKm: providerProfiles.serviceRadiusKm,
+  available: providerProfiles.available,
+};
+
+type SettingsRow = {
+  baseLocation: { x: number; y: number } | null;
+  serviceRadiusKm: number | null;
+  available: boolean | null;
+};
+
+/** Sem linha em provider_profiles: sem endereço-base, raio padrão e indisponível. */
+function toSettings(row: SettingsRow | undefined): ProviderSettings {
+  return {
+    baseLocation: row?.baseLocation ? { latitude: row.baseLocation.y, longitude: row.baseLocation.x } : null,
+    serviceRadiusKm: row?.serviceRadiusKm ?? DEFAULT_SERVICE_RADIUS_KM,
+    available: row?.available ?? false,
+  };
+}
+
+function toPoint({ latitude, longitude }: Coordinates) {
+  return { x: longitude, y: latitude };
 }

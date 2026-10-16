@@ -58,7 +58,16 @@ describe('convite de prestador', () => {
       { companyId: admin.companyId, companyName: 'Elétrica Silva', role: 'provider' },
     ]);
     expect(await providers()).toEqual([
-      { membershipId: expect.any(String), name: 'João', email: 'joao@email.com', active: true, categoryIds: [] },
+      {
+        membershipId: expect.any(String),
+        name: 'João',
+        email: 'joao@email.com',
+        active: true,
+        categoryIds: [],
+        baseLocation: null,
+        serviceRadiusKm: 20,
+        available: false,
+      },
     ]);
   });
 
@@ -92,7 +101,7 @@ describe('convite de prestador', () => {
 
       await http(s).patch(`/company/categories/${hidraulica}`).set(asAdmin()).send({ active: false }).expect(200);
       const profile = await http(s).get('/company/provider-profile').set(asUser(token, admin.companyId)).expect(200);
-      expect(profile.body).toEqual({ categories: [{ id: eletrica, name: 'Elétrica' }] });
+      expect(profile.body.categories).toEqual([{ id: eletrica, name: 'Elétrica' }]);
 
       await http(s)
         .put(`/company/providers/${joao.membershipId}/categories`)

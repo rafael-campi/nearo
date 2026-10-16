@@ -1,0 +1,989 @@
+<title>Despacho Serviços</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@500&display=swap">
+<style>
+/* Layout: app shell com seletor de perfil; empresa em painel largo, prestador e cliente em moldura de celular (lado a lado por padrão) */
+:root {
+  --bg: #eceee9;
+  --surface: #ffffff;
+  --surface-2: #f5f6f2;
+  --ink: #18211e;
+  --muted: #5b6863;
+  --line: #d6dcd6;
+  --brand: #0f4b44;
+  --brand-ink: #f2f7f5;
+  --accent: #e3a20f;
+  --accent-ink: #231800;
+  --st-open: #2462a8;
+  --st-prog: #9a6400;
+  --st-done: #2b7a4b;
+  --st-cancel: #9c3a3a;
+  --map-bg: #e9ede6;
+  --map-block: #dfe5dc;
+  --map-street: #ffffff;
+  --map-ave: #f6e7bd;
+  --shadow: 0 1px 2px rgb(20 30 28 / .06), 0 8px 24px rgb(20 30 28 / .07);
+  --f-display: "Bricolage Grotesque", "Segoe UI", system-ui, sans-serif;
+  --f-body: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --f-mono: "IBM Plex Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0e1412; --surface: #172019; --surface-2: #1d2722; --ink: #e5ece8; --muted: #94a39d;
+    --line: #2b3732; --brand: #1d6b61; --brand-ink: #eef7f4; --accent: #f0b52c; --accent-ink: #231800;
+    --st-open: #82b2ea; --st-prog: #f0b952; --st-done: #6fcf97; --st-cancel: #e58f8f;
+    --map-bg: #141c18; --map-block: #18221d; --map-street: #26322c; --map-ave: #4a4126;
+    --shadow: 0 1px 2px rgb(0 0 0 / .3), 0 8px 24px rgb(0 0 0 / .25);
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0e1412; --surface: #172019; --surface-2: #1d2722; --ink: #e5ece8; --muted: #94a39d;
+  --line: #2b3732; --brand: #1d6b61; --brand-ink: #eef7f4; --accent: #f0b52c; --accent-ink: #231800;
+  --st-open: #82b2ea; --st-prog: #f0b952; --st-done: #6fcf97; --st-cancel: #e58f8f;
+  --map-bg: #141c18; --map-block: #18221d; --map-street: #26322c; --map-ave: #4a4126;
+  --shadow: 0 1px 2px rgb(0 0 0 / .3), 0 8px 24px rgb(0 0 0 / .25);
+  color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+body {
+  background: var(--bg); color: var(--ink);
+  font-family: var(--f-body); font-size: 14px; line-height: 1.5;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: 20px 48px;
+}
+.wrap { max-width: 1120px; margin-inline: auto; display: grid; gap: 20px; }
+h1, h2, h3 { font-family: var(--f-display); margin: 0; text-wrap: balance; letter-spacing: -.01em; }
+h1 { font-size: 1.6rem; }
+h2 { font-size: 1.15rem; }
+h3 { font-size: 1rem; }
+p { margin: 0; }
+.muted { color: var(--muted); }
+.small { font-size: .82rem; }
+.mono { font-family: var(--f-mono); font-size: .8rem; font-variant-numeric: tabular-nums; }
+.eyebrow { font-size: .72rem; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); font-weight: 600; }
+
+.top { display: flex; flex-wrap: wrap; align-items: end; justify-content: space-between; gap: 16px; }
+.brand { display: flex; align-items: center; gap: 12px; }
+.logo { width: 40px; height: 40px; border-radius: 10px; background: var(--brand); color: var(--accent); display: grid; place-items: center; font-family: var(--f-display); font-weight: 700; font-size: 1.3rem; }
+.tabs { display: flex; gap: 4px; padding: 4px; background: var(--surface); border: 1px solid var(--line); border-radius: 12px; flex-wrap: wrap; }
+.tab { border: 0; background: transparent; color: var(--muted); font: 600 .9rem var(--f-body); padding: 8px 14px; border-radius: 9px; cursor: pointer; display: inline-flex; align-items: center; gap: 8px; }
+.tab[aria-selected="true"] { background: var(--brand); color: var(--brand-ink); }
+.tab:focus-visible, button:focus-visible, select:focus-visible, input:focus-visible, textarea:focus-visible, .attach:focus-within { outline: 2px solid var(--accent); outline-offset: 2px; }
+.badge { min-width: 20px; height: 20px; padding: 0 6px; border-radius: 10px; background: var(--accent); color: var(--accent-ink); font: 600 .72rem var(--f-mono); display: inline-grid; place-items: center; }
+
+.panel { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 18px; display: grid; gap: 14px; align-content: start; min-width: 0; }
+.row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+.spread { justify-content: space-between; }
+.stack { display: grid; gap: 10px; }
+button.btn { font: 600 .86rem var(--f-body); border-radius: 9px; padding: 8px 14px; cursor: pointer; border: 1px solid var(--line); background: var(--surface-2); color: var(--ink); display: inline-flex; align-items: center; gap: 6px; justify-content: center; }
+button.btn:hover { border-color: var(--muted); }
+button.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
+button.primary:hover { filter: brightness(1.05); border-color: var(--accent); }
+button.dark { background: var(--brand); border-color: var(--brand); color: var(--brand-ink); }
+button.ghost { background: transparent; }
+button.danger { color: var(--st-cancel); background: transparent; }
+button.sm { padding: 5px 10px; font-size: .8rem; }
+button:disabled { opacity: .5; cursor: not-allowed; }
+label { display: grid; gap: 5px; font-weight: 500; font-size: .84rem; }
+input, select, textarea { font: 400 .92rem var(--f-body); color: var(--ink); background: var(--surface-2); border: 1px solid var(--line); border-radius: 9px; padding: 9px 11px; width: 100%; min-width: 0; }
+textarea { resize: vertical; min-height: 64px; }
+.checks { display: flex; flex-wrap: wrap; gap: 6px; }
+.check { display: inline-flex; align-items: center; gap: 6px; padding: 5px 10px; border: 1px solid var(--line); border-radius: 999px; font-weight: 500; cursor: pointer; }
+.check input { width: auto; accent-color: var(--brand); }
+
+.chip { display: inline-flex; align-items: center; gap: 6px; font-size: .74rem; font-weight: 600; padding: 2px 9px; border-radius: 999px; white-space: nowrap; }
+.chip::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+.tone-open   { color: var(--st-open);   background: color-mix(in srgb, var(--st-open) 13%, transparent); }
+.tone-prog   { color: var(--st-prog);   background: color-mix(in srgb, var(--st-prog) 14%, transparent); }
+.tone-done   { color: var(--st-done);   background: color-mix(in srgb, var(--st-done) 14%, transparent); }
+.tone-cancel { color: var(--st-cancel); background: color-mix(in srgb, var(--st-cancel) 13%, transparent); }
+.cat { font-size: .74rem; padding: 2px 8px; border-radius: 6px; background: var(--surface-2); border: 1px solid var(--line); color: var(--muted); white-space: nowrap; }
+.star { color: var(--accent); font-weight: 600; white-space: nowrap; }
+.empty { padding: 18px; border: 1px dashed var(--line); border-radius: 10px; color: var(--muted); text-align: center; font-size: .86rem; }
+.note { font-size: .82rem; color: var(--muted); padding: 10px 12px; border-radius: 10px; background: var(--surface-2); }
+
+/* Admin */
+.admin-bar { display: flex; flex-wrap: wrap; gap: 12px 20px; align-items: center; justify-content: space-between; }
+.admin-bar select { width: auto; font-weight: 600; }
+.stats { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; }
+.stat { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px; }
+.stat b { display: block; font: 700 1.5rem var(--f-display); font-variant-numeric: tabular-nums; }
+.admin-grid { display: grid; grid-template-columns: minmax(0, 1.55fr) minmax(0, 1fr); gap: 16px; align-items: start; }
+.req { display: grid; gap: 8px; padding: 12px 0; border-top: 1px solid var(--line); }
+.req:first-of-type { border-top: 0; padding-top: 0; }
+.req-title { font-weight: 600; }
+.assign { display: flex; gap: 6px; flex-wrap: wrap; }
+.assign select { width: auto; flex: 1 1 160px; padding: 6px 8px; font-size: .84rem; }
+.prov { display: flex; gap: 12px; align-items: center; justify-content: space-between; padding: 10px 0; border-top: 1px solid var(--line); }
+.prov:first-of-type { border-top: 0; padding-top: 0; }
+.prov.off { opacity: .55; }
+.avatar { width: 34px; height: 34px; border-radius: 50%; background: color-mix(in srgb, var(--brand) 18%, var(--surface)); color: var(--ink); display: grid; place-items: center; font-weight: 700; font-size: .8rem; flex: none; }
+.avatar.lg { width: 46px; height: 46px; font-size: 1rem; }
+
+/* Phones */
+.split { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 24px; align-items: start; }
+.mobile-area { display: grid; gap: 12px; justify-items: center; min-width: 0; }
+.login-as { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; justify-content: center; }
+.login-as select { width: auto; max-width: 100%; }
+.phone { width: 100%; max-width: 400px; background: var(--surface); border: 1px solid var(--line); border-radius: 30px; overflow: hidden; box-shadow: var(--shadow); display: grid; }
+.phone-head { background: var(--brand); color: var(--brand-ink); padding: 18px 18px 16px; display: grid; gap: 4px; }
+.phone-head h2 { color: var(--brand-ink); }
+.phone-head .sub { opacity: .8; font-size: .82rem; }
+.phone-body { padding: 16px; display: grid; gap: 18px; background: var(--surface); }
+.section { display: grid; gap: 10px; }
+.card { border: 1px solid var(--line); border-radius: 14px; padding: 12px; display: grid; gap: 9px; background: var(--surface); min-width: 0; }
+.card.hot { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 7%, var(--surface)); }
+.switch { display: inline-flex; align-items: center; gap: 8px; font-size: .82rem; font-weight: 600; cursor: pointer; background: rgb(255 255 255 / .12); border: 0; color: var(--brand-ink); padding: 6px 10px; border-radius: 999px; }
+.dot { width: 9px; height: 9px; border-radius: 50%; background: #9aa5a1; }
+.dot.on { background: #5fe08f; box-shadow: 0 0 0 3px rgb(95 224 143 / .25); }
+.notif { display: grid; grid-template-columns: 8px 1fr; gap: 10px; align-items: start; font-size: .86rem; padding: 8px 0; border-top: 1px solid var(--line); }
+.notif:first-child { border-top: 0; }
+.notif i { width: 8px; height: 8px; border-radius: 50%; margin-top: 7px; background: var(--line); }
+.notif.unread i { background: var(--accent); }
+.notif.near { font-weight: 600; }
+.timeline { display: flex; gap: 4px; }
+.timeline span { flex: 1; height: 4px; border-radius: 2px; background: var(--line); }
+.timeline span.on { background: var(--st-done); }
+.company-pick { display: flex; justify-content: space-between; gap: 10px; align-items: center; }
+.person { display: flex; gap: 12px; align-items: center; }
+.person-box { border: 1px solid var(--line); border-radius: 12px; padding: 10px; background: var(--surface-2); display: grid; gap: 10px; }
+
+/* Map */
+.map { position: relative; border-radius: 12px; overflow: hidden; border: 1px solid var(--line); }
+.map canvas { display: block; width: 100%; height: 190px; }
+.map-info { position: absolute; left: 8px; right: 8px; bottom: 8px; display: flex; justify-content: space-between; gap: 8px; pointer-events: none; }
+.map-info span { background: var(--surface); color: var(--ink); border: 1px solid var(--line); border-radius: 8px; padding: 3px 8px; font-size: .76rem; font-weight: 600; font-variant-numeric: tabular-nums; }
+
+/* Chat */
+.chat { display: grid; gap: 10px; }
+.chat-head { display: flex; gap: 8px; align-items: center; min-width: 0; }
+.chat-head > div { min-width: 0; }
+.chat-log { display: flex; flex-direction: column; gap: 8px; max-height: 380px; min-height: 220px; overflow-y: auto; padding: 10px; background: var(--surface-2); border-radius: 12px; border: 1px solid var(--line); }
+.msg { max-width: 82%; align-self: flex-start; background: var(--surface); border: 1px solid var(--line); border-radius: 12px 12px 12px 4px; padding: 7px 10px; display: grid; gap: 5px; }
+.msg.me { align-self: flex-end; background: var(--brand); color: var(--brand-ink); border-color: var(--brand); border-radius: 12px 12px 4px 12px; }
+.msg img { border-radius: 8px; max-width: 100%; max-height: 220px; object-fit: cover; display: block; }
+.msg p { overflow-wrap: anywhere; }
+.msg .time { font-size: .68rem; opacity: .7; justify-self: end; font-variant-numeric: tabular-nums; }
+.chat-form { display: flex; gap: 6px; align-items: center; }
+.chat-form input[type="text"] { flex: 1; }
+.attach { width: 38px; height: 38px; flex: none; border-radius: 9px; border: 1px solid var(--line); background: var(--surface-2); display: grid; place-items: center; cursor: pointer; color: var(--ink); }
+.attach svg { width: 18px; height: 18px; }
+.visually-hidden { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+
+/* Rating */
+.rate { display: grid; gap: 8px; }
+.stars { display: inline-flex; flex-direction: row-reverse; justify-content: flex-end; gap: 2px; }
+.stars input { position: absolute; opacity: 0; width: 1px; height: 1px; }
+.stars label { font-size: 1.7rem; line-height: 1; color: var(--line); cursor: pointer; display: block; }
+.stars input:checked ~ label, .stars label:hover, .stars label:hover ~ label { color: var(--accent); }
+.stars input:focus-visible + label { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 4px; }
+
+.toasts { position: fixed; right: max(16px, env(safe-area-inset-right, 0px)); bottom: calc(16px + env(safe-area-inset-bottom, 0px)); display: grid; gap: 8px; z-index: 20; max-width: min(360px, calc(100vw - 32px)); }
+.toast { background: var(--ink); color: var(--bg); padding: 11px 14px; border-radius: 11px; font-size: .86rem; box-shadow: var(--shadow); animation: up .25s ease-out; }
+.toast b { color: var(--accent); }
+@keyframes up { from { transform: translateY(8px); opacity: .4; } to { transform: none; opacity: 1; } }
+@media (prefers-reduced-motion: reduce) { .toast { animation: none; } }
+
+@media (max-width: 880px) {
+  .admin-grid, .split { grid-template-columns: minmax(0, 1fr); }
+  .stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 440px) {
+  .phone { border-radius: 20px; }
+  .tab { padding: 8px 10px; }
+  .phone-body { padding: 12px; }
+}
+</style>
+
+<div class="wrap">
+  <header class="top">
+    <div class="brand">
+      <div class="logo" aria-hidden="true">D</div>
+      <div>
+        <h1>Despacho</h1>
+        <p class="muted small">Protótipo navegável · dados de exemplo, guardados só nesta aba</p>
+      </div>
+    </div>
+    <nav class="tabs" role="tablist" aria-label="Perfil" id="tabs"></nav>
+  </header>
+  <main id="view"></main>
+</div>
+<div class="toasts" id="toasts" aria-live="polite"></div>
+
+<script>
+/* =================== constantes =================== */
+const STATUS = {
+  aberto:             { label: 'Aberto',             tone: 'open' },
+  atribuido:          { label: 'Atribuído',          tone: 'open' },
+  aguardando_cliente: { label: 'Aguardando cliente', tone: 'open' },
+  confirmado:         { label: 'Confirmado',         tone: 'prog' },
+  a_caminho:          { label: 'A caminho',          tone: 'prog' },
+  chegou:             { label: 'Chegou',             tone: 'prog' },
+  em_execucao:        { label: 'Em execução',        tone: 'prog' },
+  concluido:          { label: 'Concluído',          tone: 'done' },
+  cancelado:          { label: 'Cancelado',          tone: 'cancel' }
+};
+const STEP = { aberto: 0, atribuido: 0, aguardando_cliente: 1, confirmado: 2, a_caminho: 3, chegou: 3, em_execucao: 4, concluido: 5 };
+const PNEXT = {
+  confirmado:  ['a_caminho', 'Sair para o atendimento'],
+  a_caminho:   ['chegou', 'Cheguei'],
+  chegou:      ['em_execucao', 'Iniciar serviço'],
+  em_execucao: ['concluido', 'Concluir serviço']
+};
+const CHAT_ON = ['aguardando_cliente', 'confirmado', 'a_caminho', 'chegou', 'em_execucao', 'concluido'];
+const MAP_ON = ['confirmado', 'a_caminho', 'chegou'];
+const NEAR_M = 500;              // raio do aviso "prestador por perto"
+const SPEED_M_MIN = 500;         // 30 km/h, usado para o tempo estimado
+/* Rota simulada em metros, com o endereço do cliente em (0,0) */
+const ROUTE = [{ x: -2250, y: 1500 }, { x: -2250, y: 250 }, { x: 0, y: 250 }, { x: 0, y: 0 }];
+const ROUTE_LEN = ROUTE.slice(1).reduce((s, p, i) => s + Math.hypot(p.x - ROUTE[i].x, p.y - ROUTE[i].y), 0);
+
+/* =================== dados de exemplo =================== */
+const now = Date.now();
+const MIN = 60000;
+const S = {
+  companies: [
+    { id: 'c1', nome: 'Lar em Ordem Manutenção', cidade: 'Curitiba', cats: ['Elétrica', 'Hidráulica', 'Pintura'] },
+    { id: 'c2', nome: 'Clima Sul Refrigeração', cidade: 'Campo Largo', cats: ['Ar-condicionado', 'Elétrica'] },
+    { id: 'c3', nome: 'Brilho Limpeza', cidade: 'Curitiba', cats: ['Limpeza residencial', 'Pós-obra'] }
+  ],
+  providers: [
+    { id: 'p1', companyId: 'c1', nome: 'Marcos Ribeiro',  tel: '(41) 99812-4410', cats: ['Elétrica'], ativo: true, disponivel: true, soma: 201, qtd: 41 },
+    { id: 'p2', companyId: 'c1', nome: 'Ana Souza',       tel: '(41) 99633-0182', cats: ['Hidráulica', 'Pintura'], ativo: true, disponivel: true, soma: 108, qtd: 23 },
+    { id: 'p5', companyId: 'c1', nome: 'Rogério Batista', tel: '(41) 98410-7765', cats: ['Elétrica', 'Pintura'], ativo: true, disponivel: true, soma: 54, qtd: 12 },
+    { id: 'p3', companyId: 'c2', nome: 'Diego Lima',      tel: '(41) 99701-2290', cats: ['Ar-condicionado', 'Elétrica'], ativo: true, disponivel: true, soma: 144, qtd: 30 },
+    { id: 'p4', companyId: 'c3', nome: 'Juliana Prado',   tel: '(41) 99155-3081', cats: ['Limpeza residencial', 'Pós-obra'], ativo: true, disponivel: true, soma: 45, qtd: 9 }
+  ],
+  clients: [
+    { id: 'u1', nome: 'Fernanda Alves', tel: '(41) 98877-1200', empresas: ['c1', 'c2'], soma: 58, qtd: 12 },
+    { id: 'u2', nome: 'Paulo Henrique Costa', tel: '(41) 99240-5512', empresas: ['c1'], soma: 21, qtd: 5 }
+  ],
+  requests: [
+    { id: 1044, companyId: 'c1', clientId: 'u2', cat: 'Elétrica', titulo: 'Chuveiro desarmando o disjuntor', desc: 'Desarma depois de uns 2 minutos ligado no inverno.', endereco: 'Av. Sete de Setembro, 3150, Rebouças', status: 'aberto', providerId: null, criado: now - 2 * MIN },
+    { id: 1042, companyId: 'c1', clientId: 'u1', cat: 'Elétrica', titulo: 'Tomada da cozinha sem energia', desc: 'Parou depois que liguei o micro-ondas. O disjuntor já foi religado.', endereco: 'Rua XV de Novembro, 820, Centro', status: 'aberto', providerId: null, criado: now - 6 * MIN },
+    { id: 1043, companyId: 'c1', clientId: 'u1', cat: 'Elétrica', titulo: 'Instalar luminária na sala', desc: 'Luminária pendente, ponto já existe no teto.', endereco: 'Rua XV de Novembro, 820, Centro', status: 'confirmado', providerId: 'p1', criado: now - 40 * MIN },
+    { id: 1041, companyId: 'c1', clientId: 'u1', cat: 'Hidráulica', titulo: 'Vazamento sob a pia', desc: 'Gotejando no sifão.', endereco: 'Rua XV de Novembro, 820, Centro', status: 'em_execucao', providerId: 'p2', criado: now - 95 * MIN },
+    { id: 1039, companyId: 'c2', clientId: 'u1', cat: 'Ar-condicionado', titulo: 'Limpeza do split 12.000 BTUs', desc: '', endereco: 'Rua XV de Novembro, 820, Centro', status: 'concluido', providerId: 'p3', criado: now - 3 * 24 * 60 * MIN }
+  ],
+  msgs: [],
+  notifs: [
+    { to: 'p1', txt: 'Novo pedido de Elétrica: Chuveiro desarmando o disjuntor', reqId: 1044, lida: false, t: now - 2 * MIN },
+    { to: 'p1', txt: 'Novo pedido de Elétrica: Tomada da cozinha sem energia', reqId: 1042, lida: false, t: now - 6 * MIN },
+    { to: 'u1', txt: 'Você confirmou Marcos Ribeiro no pedido #1043', reqId: 1043, lida: true, t: now - 30 * MIN }
+  ],
+  nextId: 1045,
+  session: { role: 'split', adminCompany: 'c1', providerId: 'p1', clientId: 'u1', chat: { p: null, c: null } }
+};
+S.requests.forEach(r => { r.recusados = []; r.aval = { cliente: null, prestador: null }; r.sim = null; });
+
+/* Foto de exemplo no chat, desenhada na hora */
+function sampleImage() {
+  const cv = document.createElement('canvas'); cv.width = 360; cv.height = 240;
+  const g = cv.getContext('2d');
+  const grad = g.createLinearGradient(0, 0, 0, 240); grad.addColorStop(0, '#efe6d6'); grad.addColorStop(1, '#d9ccb4');
+  g.fillStyle = grad; g.fillRect(0, 0, 360, 240);
+  g.fillStyle = '#f7f3ea'; g.fillRect(0, 0, 360, 40);
+  g.strokeStyle = '#b8a888'; g.lineWidth = 2; g.beginPath(); g.moveTo(0, 40); g.lineTo(360, 40); g.stroke();
+  g.fillStyle = '#ffffff'; g.beginPath(); g.arc(180, 40, 14, 0, Math.PI * 2); g.fill(); g.stroke();
+  g.strokeStyle = '#555'; g.lineWidth = 1.5; g.beginPath(); g.moveTo(176, 50); g.lineTo(170, 80); g.moveTo(184, 50); g.lineTo(190, 80); g.stroke();
+  g.fillStyle = '#7a6a52'; g.fillRect(40, 150, 110, 90); g.fillRect(230, 170, 90, 70);
+  g.fillStyle = '#e3a20f'; g.beginPath(); g.arc(180, 40, 70, 0, Math.PI * 2); g.globalAlpha = .12; g.fill(); g.globalAlpha = 1;
+  return cv.toDataURL('image/jpeg', .8);
+}
+S.msgs.push(
+  { reqId: 1043, from: 'c', text: 'Oi Marcos, segue a foto do ponto onde vai a luminária.', img: sampleImage(), lida: true, t: now - 28 * MIN },
+  { reqId: 1043, from: 'p', text: 'Recebi. Levo escada e fio. Saio em breve.', img: null, lida: true, t: now - 25 * MIN }
+);
+const r1039 = S.requests.find(r => r.id === 1039); r1039.aval.prestador = { nota: 5, coment: 'Cliente atenciosa, local acessível.' };
+
+/* =================== helpers =================== */
+const $ = s => document.querySelector(s);
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const company = id => S.companies.find(c => c.id === id);
+const provider = id => S.providers.find(p => p.id === id);
+const client = id => S.clients.find(c => c.id === id);
+const req = id => S.requests.find(r => r.id === Number(id));
+const initials = n => n.split(' ').filter(Boolean).slice(0, 2).map(w => w[0]).join('').toUpperCase();
+const first = n => n.split(' ')[0];
+const chip = st => `<span class="chip tone-${STATUS[st].tone}">${STATUS[st].label}</span>`;
+const avg = o => o.qtd ? (o.soma / o.qtd) : 0;
+const ratingTxt = o => o.qtd ? `<span class="star">★ ${avg(o).toFixed(1).replace('.', ',')}</span> <span class="muted">· ${o.qtd} avaliações</span>` : '<span class="muted">Sem avaliações ainda</span>';
+const starsFixed = n => '★'.repeat(n) + '☆'.repeat(5 - n);
+const hhmm = t => new Date(t).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+const ago = t => {
+  const m = Math.round((Date.now() - t) / MIN);
+  if (m < 1) return 'agora';
+  if (m < 60) return `há ${m} min`;
+  const h = Math.round(m / 60);
+  if (h < 24) return `há ${h} h`;
+  return `há ${Math.round(h / 24)} d`;
+};
+const fmtDist = m => m < 1000 ? `${Math.max(10, Math.round(m / 10) * 10)} m` : `${(m / 1000).toFixed(1).replace('.', ',')} km`;
+const eligible = r => S.providers.filter(p => p.companyId === r.companyId && p.ativo && p.disponivel && p.cats.includes(r.cat) && !r.recusados.includes(p.id));
+const unread = to => S.notifs.filter(n => n.to === to && !n.lida).length;
+const chatUnread = (reqId, side) => S.msgs.filter(m => m.reqId === reqId && m.from !== side && !m.lida).length;
+const chatUnreadAll = side => S.requests.filter(r => side === 'p' ? r.providerId === S.session.providerId : r.clientId === S.session.clientId)
+  .reduce((s, r) => s + chatUnread(r.id, side), 0);
+function notify(to, txt, reqId, kind) { S.notifs.unshift({ to, txt, reqId, kind, lida: false, t: Date.now() }); }
+function toast(html) {
+  const el = document.createElement('div'); el.className = 'toast'; el.innerHTML = html;
+  $('#toasts').appendChild(el); setTimeout(() => el.remove(), 4800);
+}
+
+/* posição simulada ao longo da rota */
+function posAt(d) {
+  let left = d;
+  for (let i = 1; i < ROUTE.length; i++) {
+    const a = ROUTE[i - 1], b = ROUTE[i], len = Math.hypot(b.x - a.x, b.y - a.y);
+    if (left <= len) return { x: a.x + (b.x - a.x) * left / len, y: a.y + (b.y - a.y) * left / len };
+    left -= len;
+  }
+  return { ...ROUTE[ROUTE.length - 1] };
+}
+const simD = r => r.status === 'chegou' ? ROUTE_LEN : (r.sim ? r.sim.d : 0);
+const etaMin = r => Math.max(1, Math.ceil((ROUTE_LEN - simD(r)) / SPEED_M_MIN));
+function etaText(r) {
+  if (r.status === 'chegou') return ['No endereço', ''];
+  const p = posAt(simD(r));
+  if (r.status === 'confirmado') return ['Aguardando saída', fmtDist(Math.hypot(p.x, p.y))];
+  return [`Chega em ~${etaMin(r)} min`, fmtDist(Math.hypot(p.x, p.y))];
+}
+
+/* =================== tabs =================== */
+function renderTabs() {
+  const s = S.session;
+  const pBadge = s.providerId ? unread(s.providerId) + chatUnreadAll('p') : 0;
+  const cBadge = s.clientId ? unread(s.clientId) + chatUnreadAll('c') : 0;
+  const tabs = [['split', 'Lado a lado', 0], ['admin', 'Empresa', 0], ['provider', 'Prestador', pBadge], ['client', 'Cliente', cBadge]];
+  $('#tabs').innerHTML = tabs.map(([k, l, n]) =>
+    `<button class="tab" role="tab" id="tab-${k}" aria-selected="${s.role === k}" data-act="role" data-v="${k}">${l}${n ? `<span class="badge">${n}</span>` : ''}</button>`).join('');
+}
+
+/* =================== peças compartilhadas =================== */
+function mapBlock(side, r) {
+  const [a, b] = etaText(r);
+  return `<div class="map">
+    <canvas data-map="${r.id}" id="${side}-map-${r.id}" role="img" aria-label="Mapa com a posição do prestador e o endereço do cliente"></canvas>
+    <div class="map-info"><span data-eta="${r.id}">${a}</span><span data-dist="${r.id}"${b ? '' : ' hidden'}>${b}</span></div>
+  </div>`;
+}
+function chatButton(side, r) {
+  if (!r.providerId || !CHAT_ON.includes(r.status)) return '';
+  const n = chatUnread(r.id, side);
+  return `<button class="btn sm" data-act="chat-open" data-v="${side}:${r.id}">Chat${n ? ` <span class="badge">${n}</span>` : ''}</button>`;
+}
+function rateForm(side, r) {
+  const who = side === 'c' ? 'cliente' : 'prestador';
+  const done = r.aval[who];
+  const alvo = side === 'c' ? provider(r.providerId) : client(r.clientId);
+  if (done) return `<div class="small">Sua avaliação para ${esc(first(alvo.nome))}: <span class="star">${starsFixed(done.nota)}</span>${done.coment ? ` <span class="muted">· ${esc(done.coment)}</span>` : ''}</div>`;
+  const fid = `rate-${side}-${r.id}`;
+  return `<form class="rate" id="${fid}" data-req="${r.id}" data-who="${who}">
+    <span class="small" style="font-weight:600">Como foi com ${esc(first(alvo.nome))}?</span>
+    <div class="stars">${[5, 4, 3, 2, 1].map(n => `<input type="radio" name="nota" id="${fid}-${n}" value="${n}" required><label for="${fid}-${n}" aria-label="${n} estrela${n > 1 ? 's' : ''}">★</label>`).join('')}</div>
+    <input type="text" id="${fid}-txt" placeholder="Comentário (opcional)" maxlength="200">
+    <button class="btn primary sm" type="submit">Enviar avaliação</button>
+  </form>`;
+}
+function chatScreen(side, r) {
+  S.msgs.forEach(m => { if (m.reqId === r.id && m.from !== side) m.lida = true; });
+  const other = side === 'p' ? client(r.clientId) : provider(r.providerId);
+  const list = S.msgs.filter(m => m.reqId === r.id);
+  const closed = ['concluido', 'cancelado'].includes(r.status);
+  return `<div class="chat">
+    <div class="chat-head">
+      <button class="btn sm ghost" data-act="chat-close" data-v="${side}">← Voltar</button>
+      <div><div style="font-weight:600">${esc(other.nome)}</div><div class="small muted">#${r.id} · ${esc(r.titulo)}</div></div>
+    </div>
+    <div class="chat-log" id="${side}-chat-log">
+      ${list.length ? list.map(m => `<div class="msg ${m.from === side ? 'me' : ''}">
+        ${m.img ? `<img src="${m.img}" alt="Foto enviada por ${m.from === side ? 'você' : esc(first(other.nome))}">` : ''}
+        ${m.text ? `<p>${esc(m.text)}</p>` : ''}
+        <span class="time">${hhmm(m.t)}</span></div>`).join('') : '<p class="small muted" style="margin:auto">Nenhuma mensagem ainda. Mande um oi ou uma foto do local.</p>'}
+    </div>
+    ${closed ? '<div class="note">Serviço encerrado. A conversa fica disponível só para leitura.</div>' : `
+    <form class="chat-form" id="chat-form-${side}" data-side="${side}" data-req="${r.id}">
+      <label class="attach" for="chat-file-${side}" title="Enviar foto">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2"/><circle cx="12" cy="12" r="3.5"/><path d="M8 5l1.5-2h5L16 5"/></svg>
+        <span class="visually-hidden">Enviar foto</span>
+      </label>
+      <input type="file" accept="image/*" class="visually-hidden" id="chat-file-${side}" data-side="${side}" data-req="${r.id}">
+      <input type="text" id="chat-text-${side}" placeholder="Mensagem" autocomplete="off" aria-label="Mensagem">
+      <button class="btn primary" type="submit">Enviar</button>
+    </form>`}
+  </div>`;
+}
+function notifList(to, side) {
+  const list = S.notifs.filter(n => n.to === to).slice(0, 4);
+  if (!list.length) return '';
+  return `<div class="section">
+    <div class="row spread"><h3>Notificações</h3>${unread(to) ? `<button class="btn sm ghost" data-act="read-all" data-v="${side}">Marcar como lidas</button>` : ''}</div>
+    <div>${list.map(n => `<div class="notif ${n.lida ? '' : 'unread'} ${n.kind === 'near' ? 'near' : ''}"><i></i><div>${esc(n.txt)}<div class="small muted">${ago(n.t)}</div></div></div>`).join('')}</div>
+  </div>`;
+}
+
+/* =================== admin =================== */
+function renderAdmin() {
+  const c = company(S.session.adminCompany);
+  const reqs = S.requests.filter(r => r.companyId === c.id).sort((a, b) => b.criado - a.criado);
+  const provs = S.providers.filter(p => p.companyId === c.id);
+  const clientsCount = S.clients.filter(u => u.empresas.includes(c.id)).length;
+  const count = f => reqs.filter(f).length;
+
+  const reqHtml = reqs.length ? reqs.map(r => {
+    const u = client(r.clientId), p = provider(r.providerId);
+    const canAssign = r.status === 'aberto' || r.status === 'atribuido';
+    const opts = S.providers.filter(x => x.companyId === c.id && x.ativo && x.cats.includes(r.cat) && !r.recusados.includes(x.id));
+    const el = eligible(r);
+    return `<div class="req">
+      <div class="row spread">
+        <div class="row"><span class="mono muted">#${r.id}</span><span class="req-title">${esc(r.titulo)}</span></div>
+        ${chip(r.status)}
+      </div>
+      <div class="row small muted">
+        <span class="cat">${esc(r.cat)}</span><span>${esc(u ? u.nome : 'Cliente')}</span><span>·</span><span>${esc(r.endereco)}</span><span>·</span><span>${ago(r.criado)}</span>
+      </div>
+      ${p ? `<div class="small">Prestador: <b>${esc(p.nome)}</b>${r.status === 'a_caminho' ? ` · <span data-dist-admin="${r.id}">${etaText(r)[1]} do cliente</span>` : ''}</div>` : ''}
+      ${r.recusados.length ? `<div class="small muted">Recusas: ${r.recusados.map(id => esc(provider(id).nome)).join(', ')}</div>` : ''}
+      ${r.status === 'aberto' ? `<div class="small muted">Notificados: ${el.length ? el.map(x => esc(x.nome)).join(', ') : 'nenhum prestador disponível nesta categoria'}</div>` : ''}
+      ${canAssign ? `<div class="assign">
+        <select id="assign-${r.id}" aria-label="Prestador para o pedido ${r.id}">
+          ${opts.length ? opts.map(x => `<option value="${x.id}" ${x.id === r.providerId ? 'selected' : ''}>${esc(x.nome)}${x.disponivel ? '' : ' (indisponível)'}</option>`).join('') : '<option value="">Nenhum prestador nesta categoria</option>'}
+        </select>
+        <button class="btn sm dark" data-act="assign" data-v="${r.id}" ${opts.length ? '' : 'disabled'}>Atribuir</button>
+      </div>` : ''}
+    </div>`;
+  }).join('') : '<div class="empty">Nenhum pedido ainda. Entre como cliente e crie um.</div>';
+
+  const provHtml = provs.map(p => `<div class="prov ${p.ativo ? '' : 'off'}">
+      <div class="row" style="flex-wrap:nowrap;min-width:0">
+        <div class="avatar">${initials(p.nome)}</div>
+        <div style="min-width:0">
+          <div style="font-weight:600">${esc(p.nome)}</div>
+          <div class="small">${ratingTxt(p)}</div>
+          <div class="small muted">${esc(p.tel)} · ${p.ativo ? (p.disponivel ? 'disponível' : 'indisponível') : 'desativado'}</div>
+          <div class="checks" style="margin-top:4px">${p.cats.map(x => `<span class="cat">${esc(x)}</span>`).join('')}</div>
+        </div>
+      </div>
+      <button class="btn sm ${p.ativo ? 'danger' : ''}" data-act="toggle-prov" data-v="${p.id}">${p.ativo ? 'Desativar' : 'Reativar'}</button>
+    </div>`).join('') || '<div class="empty">Nenhum prestador cadastrado.</div>';
+
+  return `<div class="stack" style="gap:16px">
+    <div class="admin-bar">
+      <div class="stack" style="gap:4px">
+        <span class="eyebrow">Painel da empresa</span>
+        <select id="admin-company" aria-label="Empresa">${S.companies.map(x => `<option value="${x.id}" ${x.id === c.id ? 'selected' : ''}>${esc(x.nome)}</option>`).join('')}</select>
+      </div>
+      <p class="small muted">${clientsCount} cliente(s) escolheram esta empresa · atende ${c.cats.map(esc).join(', ')}</p>
+    </div>
+    <div class="stats">
+      <div class="stat"><span class="eyebrow">Abertos</span><b>${count(r => ['aberto', 'atribuido', 'aguardando_cliente'].includes(r.status))}</b></div>
+      <div class="stat"><span class="eyebrow">Em andamento</span><b>${count(r => ['confirmado', 'a_caminho', 'chegou', 'em_execucao'].includes(r.status))}</b></div>
+      <div class="stat"><span class="eyebrow">Concluídos</span><b>${count(r => r.status === 'concluido')}</b></div>
+      <div class="stat"><span class="eyebrow">Prestadores ativos</span><b>${provs.filter(p => p.ativo).length}</b></div>
+    </div>
+    <div class="admin-grid">
+      <section class="panel">
+        <div class="row spread"><h2>Pedidos</h2><span class="small muted">mais recentes primeiro</span></div>
+        <p class="note">Um pedido novo avisa todos os prestadores ativos e disponíveis da categoria. Quem aceita primeiro é apresentado ao cliente, que confirma ou escolhe outro. Você também pode atribuir manualmente.</p>
+        <div>${reqHtml}</div>
+      </section>
+      <div class="stack" style="gap:16px">
+        <section class="panel"><h2>Prestadores</h2><div>${provHtml}</div></section>
+        <section class="panel">
+          <h2>Cadastrar prestador</h2>
+          <form id="form-prov" class="stack">
+            <label>Nome completo<input id="np-nome" required placeholder="Ex.: Carla Menezes"></label>
+            <label>Celular<input id="np-tel" required placeholder="(41) 99999-0000"></label>
+            <div class="stack" style="gap:6px">
+              <span style="font-weight:500;font-size:.84rem">Categorias que atende</span>
+              <div class="checks">${c.cats.map((x, i) => `<label class="check"><input type="checkbox" id="np-cat-${i}" value="${esc(x)}">${esc(x)}</label>`).join('')}</div>
+            </div>
+            <button class="btn primary" type="submit">Cadastrar e enviar convite</button>
+          </form>
+        </section>
+      </div>
+    </div>
+  </div>`;
+}
+
+/* =================== prestador =================== */
+function providerCard(r, me) {
+  const u = client(r.clientId);
+  const contact = !['aberto', 'atribuido', 'aguardando_cliente'].includes(r.status);
+  let body = '';
+  if (r.status === 'aberto' || r.status === 'atribuido') {
+    body = `<div class="small">Cliente: <b>${esc(first(u.nome))}</b> · ${ratingTxt(u)}</div>
+      ${r.status === 'atribuido' ? '<div class="small muted">Atribuído a você pela empresa</div>' : ''}
+      <div class="row"><button class="btn primary" data-act="accept" data-v="${r.id}">Aceitar</button><button class="btn danger" data-act="decline" data-v="${r.id}">Recusar</button></div>`;
+  } else if (r.status === 'aguardando_cliente') {
+    body = `<div class="small">Cliente: <b>${esc(first(u.nome))}</b> · ${ratingTxt(u)}</div>
+      <p class="note">Você aceitou. Agora ${esc(first(u.nome))} precisa confirmar você.</p>
+      <div class="row">${chatButton('p', r)}</div>`;
+  } else {
+    body = `${contact ? `<div class="small">Cliente: <b>${esc(u.nome)}</b> · <span class="mono">${esc(u.tel)}</span></div>` : ''}
+      ${MAP_ON.includes(r.status) ? mapBlock('p', r) : ''}
+      ${r.status === 'concluido' ? rateForm('p', r) : ''}
+      <div class="row">${PNEXT[r.status] ? `<button class="btn dark" data-act="advance" data-v="${r.id}">${PNEXT[r.status][1]}</button>` : ''}${chatButton('p', r)}</div>`;
+  }
+  return `<div class="card ${['aberto', 'atribuido'].includes(r.status) ? 'hot' : ''}">
+    <div class="row spread"><span class="mono muted">#${r.id} · ${ago(r.criado)}</span>${chip(r.status)}</div>
+    <div style="font-weight:600">${esc(r.titulo)}</div>
+    ${r.desc ? `<p class="small muted">${esc(r.desc)}</p>` : ''}
+    <div class="row small"><span class="cat">${esc(r.cat)}</span><span class="muted">${esc(r.endereco)}</span></div>
+    ${body}
+  </div>`;
+}
+
+function renderProvider() {
+  const me = provider(S.session.providerId);
+  const c = company(me.companyId);
+  const groups = S.companies.map(co => `<optgroup label="${esc(co.nome)}">${S.providers.filter(p => p.companyId === co.id).map(p => `<option value="${p.id}" ${p.id === me.id ? 'selected' : ''}>${esc(p.nome)}</option>`).join('')}</optgroup>`).join('');
+  const chatReq = S.session.chat.p && req(S.session.chat.p);
+
+  let body;
+  if (!me.ativo) {
+    body = `<div class="empty">Seu acesso foi desativado por ${esc(c.nome)}. Fale com a empresa para reativar.</div>`;
+  } else if (chatReq && chatReq.providerId === me.id) {
+    body = chatScreen('p', chatReq);
+  } else {
+    const novos = S.requests.filter(r => (r.status === 'aberto' && r.companyId === me.companyId && me.cats.includes(r.cat) && !r.recusados.includes(me.id)) || (r.status === 'atribuido' && r.providerId === me.id)).sort((a, b) => b.criado - a.criado);
+    const ativos = S.requests.filter(r => r.providerId === me.id && !['atribuido', 'concluido', 'cancelado'].includes(r.status)).sort((a, b) => b.criado - a.criado);
+    const hist = S.requests.filter(r => r.providerId === me.id && r.status === 'concluido');
+    body = `
+      ${notifList(me.id, 'p')}
+      <div class="section">
+        <div class="row spread"><h3>Em andamento</h3></div>
+        ${ativos.length ? ativos.map(r => providerCard(r, me)).join('') : '<div class="empty">Nenhum serviço em andamento.</div>'}
+      </div>
+      <div class="section">
+        <div class="row spread"><h3>Novos pedidos</h3><span class="small muted">${me.cats.map(esc).join(', ')}</span></div>
+        ${!me.disponivel ? '<p class="note">Você está indisponível e não recebe avisos de pedidos novos.</p>' : ''}
+        ${novos.length ? novos.map(r => providerCard(r, me)).join('') : '<div class="empty">Nenhum pedido aberto nas suas categorias agora.</div>'}
+      </div>
+      ${hist.length ? `<div class="section"><h3>Concluídos</h3>${hist.map(r => providerCard(r, me)).join('')}</div>` : ''}`;
+  }
+
+  return `<div class="mobile-area">
+    <div class="login-as"><span class="small muted">Prestador</span><select id="provider-select" aria-label="Entrar como prestador">${groups}</select></div>
+    <div class="phone">
+      <div class="phone-head">
+        <div class="row spread">
+          <span class="sub">${esc(c.nome)}</span>
+          ${me.ativo ? `<button class="switch" data-act="toggle-disp"><span class="dot ${me.disponivel ? 'on' : ''}"></span>${me.disponivel ? 'Disponível' : 'Indisponível'}</button>` : ''}
+        </div>
+        <h2>Olá, ${esc(first(me.nome))}</h2>
+        <span class="sub">★ ${avg(me).toFixed(1).replace('.', ',')} · ${me.qtd} avaliações</span>
+      </div>
+      <div class="phone-body">${body}</div>
+    </div>
+  </div>`;
+}
+
+/* =================== cliente =================== */
+function clientCard(r) {
+  const p = provider(r.providerId), co = company(r.companyId);
+  const idx = STEP[r.status] ?? 0;
+  let body = '';
+  if (r.status === 'aberto' || r.status === 'atribuido') {
+    body = `<div class="small muted">Aguardando um prestador aceitar</div>
+      <button class="btn sm danger" data-act="cancel" data-v="${r.id}">Cancelar pedido</button>`;
+  } else if (r.status === 'aguardando_cliente') {
+    const feitos = S.requests.filter(x => x.providerId === p.id && x.status === 'concluido').length;
+    body = `<div class="person-box">
+        <div class="person">
+          <div class="avatar lg">${initials(p.nome)}</div>
+          <div><div style="font-weight:600">${esc(p.nome)} quer atender você</div>
+          <div class="small">${ratingTxt(p)}</div>
+          <div class="small muted">${p.cats.map(esc).join(', ')} · ${p.qtd + feitos} serviços</div></div>
+        </div>
+        <div class="row"><button class="btn primary" data-act="client-accept" data-v="${r.id}">Aceitar prestador</button><button class="btn danger" data-act="client-reject" data-v="${r.id}">Escolher outro</button></div>
+      </div>
+      <div class="row">${chatButton('c', r)}</div>`;
+  } else if (r.status === 'cancelado') {
+    body = '<div class="small muted">Pedido cancelado</div>';
+  } else {
+    body = `<div class="small">Prestador: <b>${esc(p.nome)}</b> · ${ratingTxt(p)}</div>
+      ${MAP_ON.includes(r.status) ? mapBlock('c', r) : ''}
+      ${r.status === 'concluido' ? rateForm('c', r) : ''}
+      <div class="row">${chatButton('c', r)}</div>`;
+  }
+  return `<div class="card ${r.status === 'aguardando_cliente' ? 'hot' : ''}">
+    <div class="row spread"><span class="mono muted">#${r.id} · ${ago(r.criado)}</span>${chip(r.status)}</div>
+    <div style="font-weight:600">${esc(r.titulo)}</div>
+    <div class="small muted">${esc(co.nome)} · ${esc(r.cat)}</div>
+    ${r.status !== 'cancelado' ? `<div class="timeline" aria-hidden="true">${[0, 1, 2, 3, 4, 5].map(i => `<span class="${i <= idx ? 'on' : ''}"></span>`).join('')}</div>` : ''}
+    ${body}
+  </div>`;
+}
+
+function renderClient() {
+  const s = S.session;
+  const top = `<div class="login-as">
+      <span class="small muted">Cliente</span>
+      <select id="client-select" aria-label="Entrar como cliente">${S.clients.map(u => `<option value="${u.id}" ${u.id === s.clientId ? 'selected' : ''}>${esc(u.nome)}</option>`).join('')}${s.clientId ? '' : '<option value="" selected>Novo cadastro</option>'}</select>
+      <button class="btn sm" data-act="client-logout">Novo cadastro</button>
+    </div>`;
+
+  if (!s.clientId) {
+    return `<div class="mobile-area">${top}
+      <div class="phone">
+        <div class="phone-head"><span class="sub">Bem-vindo ao Despacho</span><h2>Crie sua conta</h2></div>
+        <div class="phone-body">
+          <form id="form-signup" class="stack">
+            <label>Nome<input id="su-nome" required placeholder="Seu nome completo"></label>
+            <label>Celular<input id="su-tel" required placeholder="(41) 99999-0000"></label>
+            <label>E-mail<input id="su-email" type="email" placeholder="voce@email.com"></label>
+            <button class="btn primary" type="submit">Criar conta</button>
+            <p class="small muted">Depois você escolhe quais empresas vão atender você.</p>
+          </form>
+        </div>
+      </div></div>`;
+  }
+
+  const me = client(s.clientId);
+  const chatReq = s.chat.c && req(s.chat.c);
+  let body;
+  if (chatReq && chatReq.clientId === me.id) {
+    body = chatScreen('c', chatReq);
+  } else {
+    const minhas = S.companies.filter(c => me.empresas.includes(c.id));
+    const pedidos = S.requests.filter(r => r.clientId === me.id).sort((a, b) => b.criado - a.criado);
+    const firstCo = minhas[0];
+    body = `
+      ${notifList(me.id, 'c')}
+      <div class="section"><h3>Meus pedidos</h3>${pedidos.length ? pedidos.map(clientCard).join('') : '<div class="empty">Você ainda não fez nenhum pedido.</div>'}</div>
+      <div class="section">
+        <h3>Pedir um serviço</h3>
+        ${minhas.length ? `<form id="form-req" class="stack">
+          <label>Empresa<select id="nr-co">${minhas.map(c => `<option value="${c.id}">${esc(c.nome)}</option>`).join('')}</select></label>
+          <label>Categoria<select id="nr-cat">${firstCo.cats.map(x => `<option>${esc(x)}</option>`).join('')}</select></label>
+          <label>O que precisa ser feito<input id="nr-titulo" required placeholder="Ex.: Trocar chuveiro queimado"></label>
+          <label>Detalhes<textarea id="nr-desc" placeholder="Opcional: marca, tamanho, quando começou..."></textarea></label>
+          <label>Endereço<input id="nr-end" required value="Rua XV de Novembro, 820, Centro"></label>
+          <button class="btn primary" type="submit">Enviar pedido</button>
+        </form>` : '<div class="empty">Escolha pelo menos uma empresa abaixo para pedir serviços.</div>'}
+      </div>
+      <div class="section">
+        <h3>Empresas que atendem você</h3>
+        ${S.companies.map(c => {
+          const on = me.empresas.includes(c.id);
+          return `<div class="card company-pick">
+            <div style="min-width:0"><div style="font-weight:600">${esc(c.nome)}</div><div class="small muted">${esc(c.cidade)} · ${c.cats.map(esc).join(', ')}</div></div>
+            <button class="btn sm ${on ? '' : 'dark'}" data-act="toggle-co" data-v="${c.id}">${on ? 'Remover' : 'Escolher'}</button>
+          </div>`;
+        }).join('')}
+      </div>`;
+  }
+
+  return `<div class="mobile-area">${top}
+    <div class="phone">
+      <div class="phone-head">
+        <span class="sub">${me.empresas.length} empresa(s) escolhida(s)</span>
+        <h2>Olá, ${esc(first(me.nome))}</h2>
+        <span class="sub">Sua nota: ★ ${avg(me).toFixed(1).replace('.', ',')} · ${me.qtd} avaliações</span>
+      </div>
+      <div class="phone-body">${body}</div>
+    </div></div>`;
+}
+
+/* =================== render =================== */
+let pending = false;
+function render() {
+  pending = false;
+  const r = S.session.role;
+  $('#view').innerHTML = r === 'admin' ? renderAdmin()
+    : r === 'provider' ? renderProvider()
+    : r === 'client' ? renderClient()
+    : `<div class="split">${renderProvider()}${renderClient()}</div>`;
+  renderTabs();
+  document.querySelectorAll('.chat-log').forEach(el => { el.scrollTop = el.scrollHeight; });
+  drawMaps();
+}
+/* não apaga o que a pessoa está digitando: adia o redesenho completo */
+function softRender() {
+  const a = document.activeElement;
+  if (a && (a.tagName === 'INPUT' || a.tagName === 'TEXTAREA') && a.type !== 'radio' && a.value) { pending = true; renderTabs(); return; }
+  render();
+}
+document.addEventListener('focusout', () => { setTimeout(() => { if (pending && !document.activeElement?.value) render(); }, 0); });
+
+/* =================== mapa =================== */
+const cssv = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+function drawMaps() { document.querySelectorAll('canvas[data-map]').forEach(drawMap); }
+function drawMap(cv) {
+  const r = req(cv.dataset.map); if (!r) return;
+  const w = cv.clientWidth, h = cv.clientHeight; if (!w) return;
+  const dpr = window.devicePixelRatio || 1;
+  if (cv.width !== Math.round(w * dpr)) { cv.width = Math.round(w * dpr); cv.height = Math.round(h * dpr); }
+  const g = cv.getContext('2d'); g.setTransform(dpr, 0, 0, dpr, 0, 0);
+  const xmin = -2600, xmax = 450, ymin = -350, ymax = 1800;
+  const sc = Math.min(w / (xmax - xmin), h / (ymax - ymin));
+  const ox = (w - (xmax - xmin) * sc) / 2, oy = (h - (ymax - ymin) * sc) / 2;
+  const X = x => ox + (x - xmin) * sc, Y = y => oy + (ymax - y) * sc;
+
+  g.fillStyle = cssv('--map-bg'); g.fillRect(0, 0, w, h);
+  g.fillStyle = cssv('--map-block');
+  for (let x = -2750; x < 600; x += 250) for (let y = -500; y < 1900; y += 250) g.fillRect(X(x) + 4, Y(y + 250) + 4, 250 * sc - 8, 250 * sc - 8);
+  g.strokeStyle = cssv('--map-street'); g.lineWidth = 3;
+  g.beginPath();
+  for (let x = -2750; x <= 750; x += 250) { g.moveTo(X(x), 0); g.lineTo(X(x), h); }
+  for (let y = -500; y <= 2000; y += 250) { g.moveTo(0, Y(y)); g.lineTo(w, Y(y)); }
+  g.stroke();
+  g.strokeStyle = cssv('--map-ave'); g.lineWidth = 6;
+  g.beginPath(); g.moveTo(X(-2250), 0); g.lineTo(X(-2250), h); g.moveTo(0, Y(250)); g.lineTo(w, Y(250)); g.stroke();
+
+  // raio de proximidade
+  g.save();
+  g.fillStyle = cssv('--accent'); g.globalAlpha = .1;
+  g.beginPath(); g.arc(X(0), Y(0), NEAR_M * sc, 0, Math.PI * 2); g.fill();
+  g.globalAlpha = .8; g.strokeStyle = cssv('--accent'); g.setLineDash([4, 4]); g.lineWidth = 1.5; g.stroke();
+  g.restore();
+
+  // rota: trecho restante tracejado, percorrido sólido
+  const d = simD(r), pos = posAt(d);
+  g.lineWidth = 3; g.lineCap = 'round'; g.lineJoin = 'round';
+  g.strokeStyle = cssv('--muted'); g.setLineDash([2, 6]);
+  g.beginPath(); g.moveTo(X(pos.x), Y(pos.y));
+  let acc = 0;
+  for (let i = 1; i < ROUTE.length; i++) {
+    acc += Math.hypot(ROUTE[i].x - ROUTE[i - 1].x, ROUTE[i].y - ROUTE[i - 1].y);
+    if (acc > d) g.lineTo(X(ROUTE[i].x), Y(ROUTE[i].y));
+  }
+  g.stroke(); g.setLineDash([]);
+  g.strokeStyle = cssv('--brand'); g.beginPath(); g.moveTo(X(ROUTE[0].x), Y(ROUTE[0].y));
+  acc = 0;
+  for (let i = 1; i < ROUTE.length; i++) {
+    acc += Math.hypot(ROUTE[i].x - ROUTE[i - 1].x, ROUTE[i].y - ROUTE[i - 1].y);
+    if (acc < d) g.lineTo(X(ROUTE[i].x), Y(ROUTE[i].y)); else break;
+  }
+  g.lineTo(X(pos.x), Y(pos.y)); g.stroke();
+
+  // endereço do cliente
+  g.fillStyle = cssv('--brand'); g.beginPath(); g.arc(X(0), Y(0), 8, 0, Math.PI * 2); g.fill();
+  g.fillStyle = cssv('--surface'); g.beginPath(); g.arc(X(0), Y(0), 3, 0, Math.PI * 2); g.fill();
+  g.font = '600 11px "IBM Plex Sans", system-ui, sans-serif'; g.fillStyle = cssv('--ink'); g.textAlign = 'left';
+  g.fillText('Cliente', X(0) + 12, Y(0) + 4);
+
+  // prestador
+  const px = X(pos.x), py = Y(pos.y);
+  g.fillStyle = cssv('--accent'); g.globalAlpha = .25; g.beginPath(); g.arc(px, py, 14, 0, Math.PI * 2); g.fill(); g.globalAlpha = 1;
+  g.beginPath(); g.arc(px, py, 8, 0, Math.PI * 2); g.fill();
+  g.strokeStyle = cssv('--surface'); g.lineWidth = 2; g.stroke();
+  const p = provider(r.providerId);
+  if (p && r.status !== 'chegou') { g.fillStyle = cssv('--ink'); g.fillText(first(p.nome), px + 12, py - 8); }
+}
+function updateEtas() {
+  S.requests.forEach(r => {
+    if (!MAP_ON.includes(r.status)) return;
+    const [a, b] = etaText(r);
+    document.querySelectorAll(`[data-eta="${r.id}"]`).forEach(el => { el.textContent = a; });
+    document.querySelectorAll(`[data-dist="${r.id}"]`).forEach(el => { el.textContent = b; el.hidden = !b; });
+    document.querySelectorAll(`[data-dist-admin="${r.id}"]`).forEach(el => { el.textContent = `${b} do cliente`; });
+  });
+}
+window.matchMedia('(prefers-color-scheme: dark)').addEventListener?.('change', drawMaps);
+new MutationObserver(drawMaps).observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
+window.addEventListener('resize', drawMaps);
+
+/* deslocamento simulado: no app real a posição vem do GPS do prestador */
+setInterval(() => {
+  let moved = false, ev = false;
+  S.requests.forEach(r => {
+    if (r.status !== 'a_caminho' || !r.sim) return;
+    r.sim.d = Math.min(ROUTE_LEN, r.sim.d + 25); moved = true;
+    const p = posAt(r.sim.d), dist = Math.hypot(p.x, p.y), pr = provider(r.providerId);
+    if (!r.sim.perto && dist <= NEAR_M) {
+      r.sim.perto = true;
+      notify(r.clientId, `${pr.nome} está a menos de ${NEAR_M} m. Chega em cerca de ${etaMin(r)} min.`, r.id, 'near');
+      toast(`<b>Cliente notificado:</b> ${esc(first(pr.nome))} está a menos de ${NEAR_M} m (#${r.id}).`);
+      ev = true;
+    }
+    if (r.sim.d >= ROUTE_LEN) { setStatus(r, 'chegou'); toast(`${esc(first(pr.nome))} chegou ao endereço do pedido #${r.id}.`); ev = true; }
+  });
+  if (moved) { drawMaps(); updateEtas(); }
+  if (ev) softRender();
+}, 250);
+
+/* =================== ações =================== */
+function setStatus(r, st) {
+  r.status = st;
+  const p = provider(r.providerId);
+  const msgs = {
+    aguardando_cliente: `${p?.nome} quer atender o pedido #${r.id}. Confirme se aceita.`,
+    a_caminho: `${p?.nome} saiu para o atendimento do pedido #${r.id}. Acompanhe no mapa.`,
+    chegou: `${p?.nome} chegou ao endereço (#${r.id}).`,
+    em_execucao: `Serviço #${r.id} em execução.`,
+    concluido: `Serviço #${r.id} concluído. Avalie ${p ? first(p.nome) : 'o prestador'}.`
+  };
+  if (msgs[st]) notify(r.clientId, msgs[st], r.id);
+  if (st === 'a_caminho') r.sim = { d: 0, perto: false };
+  if (st === 'chegou' && r.sim) r.sim.d = ROUTE_LEN;
+}
+function reopen(r, quemRecusou) {
+  if (quemRecusou) r.recusados.push(quemRecusou);
+  r.providerId = null; r.status = 'aberto'; r.sim = null;
+  eligible(r).forEach(p => notify(p.id, `Novo pedido de ${r.cat}: ${r.titulo}`, r.id));
+}
+
+document.addEventListener('click', e => {
+  const b = e.target.closest('[data-act]');
+  if (!b) return;
+  const act = b.dataset.act, v = b.dataset.v, s = S.session;
+
+  if (act === 'role') s.role = v;
+
+  if (act === 'assign') {
+    const r = req(v), pid = $('#assign-' + v).value;
+    if (!pid) return;
+    r.providerId = pid; r.status = 'atribuido';
+    notify(pid, `Pedido #${r.id} atribuído a você: ${r.titulo}`, r.id);
+    toast(`Pedido #${r.id} atribuído. <b>${esc(provider(pid).nome)}</b> foi notificado.`);
+  }
+  if (act === 'toggle-prov') {
+    const p = provider(v); p.ativo = !p.ativo;
+    toast(p.ativo ? `${esc(p.nome)} reativado.` : `${esc(p.nome)} desativado. Ele perde o acesso e deixa de receber pedidos.`);
+  }
+  if (act === 'toggle-disp') { const p = provider(s.providerId); p.disponivel = !p.disponivel; }
+
+  if (act === 'accept') {
+    const r = req(v), me = provider(s.providerId);
+    if (r.status === 'aberto' && r.providerId && r.providerId !== me.id) { toast('Outro prestador já aceitou este pedido.'); render(); return; }
+    r.providerId = me.id;
+    setStatus(r, 'aguardando_cliente');
+    S.notifs.forEach(n => { if (n.reqId === r.id && n.to !== r.clientId) n.lida = true; });
+    toast(`Você aceitou o pedido #${r.id}. ${esc(first(client(r.clientId).nome))} vai confirmar.`);
+  }
+  if (act === 'decline') {
+    const r = req(v), me = s.providerId;
+    if (r.status === 'atribuido') reopen(r, me); else r.recusados.push(me);
+    S.notifs.forEach(n => { if (n.reqId === r.id && n.to === me) n.lida = true; });
+    toast(`Você recusou o pedido #${r.id}. Ele não aparece mais para você.`);
+  }
+  if (act === 'client-accept') {
+    const r = req(v), p = provider(r.providerId);
+    r.status = 'confirmado';
+    notify(p.id, `${first(client(r.clientId).nome)} confirmou você no pedido #${r.id}.`, r.id);
+    toast(`Você confirmou <b>${esc(p.nome)}</b>. Ele foi notificado.`);
+  }
+  if (act === 'client-reject') {
+    const r = req(v), p = provider(r.providerId);
+    notify(p.id, `O cliente escolheu outro prestador para o pedido #${r.id}.`, r.id);
+    if (s.chat.p === r.id) s.chat.p = null;
+    reopen(r, p.id);
+    toast(`Pedido #${r.id} voltou para a fila. ${eligible(r).length} outro(s) prestador(es) foram avisados.`);
+  }
+  if (act === 'advance') {
+    const r = req(v); setStatus(r, PNEXT[r.status][0]);
+    toast(r.status === 'a_caminho'
+      ? `A caminho. O cliente acompanha no mapa e é avisado a ${NEAR_M} m.`
+      : `Status atualizado: <b>${STATUS[r.status].label}</b>. O cliente foi avisado.`);
+  }
+  if (act === 'read-all') {
+    const to = v === 'p' ? s.providerId : s.clientId;
+    S.notifs.forEach(n => { if (n.to === to) n.lida = true; });
+  }
+  if (act === 'client-logout') { s.clientId = null; s.chat.c = null; }
+  if (act === 'toggle-co') {
+    const me = client(s.clientId);
+    me.empresas = me.empresas.includes(v) ? me.empresas.filter(x => x !== v) : [...me.empresas, v];
+  }
+  if (act === 'cancel') { const r = req(v); r.status = 'cancelado'; toast(`Pedido #${r.id} cancelado.`); }
+  if (act === 'chat-open') { const [side, id] = v.split(':'); s.chat[side] = Number(id); }
+  if (act === 'chat-close') s.chat[v] = null;
+
+  render();
+});
+
+document.addEventListener('change', async e => {
+  const t = e.target, s = S.session;
+  if (t.id === 'admin-company') { s.adminCompany = t.value; render(); }
+  if (t.id === 'provider-select') { s.providerId = t.value; s.chat.p = null; render(); }
+  if (t.id === 'client-select') { s.clientId = t.value || null; s.chat.c = null; render(); }
+  if (t.id === 'nr-co') $('#nr-cat').innerHTML = company(t.value).cats.map(x => `<option>${esc(x)}</option>`).join('');
+  if (t.id && t.id.startsWith('chat-file-') && t.files[0]) {
+    try {
+      const img = await compress(t.files[0]);
+      S.msgs.push({ reqId: Number(t.dataset.req), from: t.dataset.side, text: '', img, lida: false, t: Date.now() });
+      render();
+    } catch { toast('Não foi possível abrir essa imagem. Tente uma foto em JPG ou PNG.'); }
+  }
+});
+
+/* reduz a foto para no máximo 1000 px antes de enviar, como o app faria antes do upload */
+function compress(file) {
+  return new Promise((res, rej) => {
+    const fr = new FileReader();
+    fr.onload = () => {
+      const img = new Image();
+      img.onload = () => {
+        const k = Math.min(1, 1000 / Math.max(img.width, img.height));
+        const cv = document.createElement('canvas');
+        cv.width = Math.round(img.width * k); cv.height = Math.round(img.height * k);
+        cv.getContext('2d').drawImage(img, 0, 0, cv.width, cv.height);
+        res(cv.toDataURL('image/jpeg', .8));
+      };
+      img.onerror = rej; img.src = fr.result;
+    };
+    fr.onerror = rej; fr.readAsDataURL(file);
+  });
+}
+
+document.addEventListener('submit', e => {
+  e.preventDefault();
+  const f = e.target, s = S.session;
+
+  if (f.id === 'form-prov') {
+    const cats = [...f.querySelectorAll('input[type=checkbox]:checked')].map(i => i.value);
+    if (!cats.length) { toast('Marque pelo menos uma categoria.'); return; }
+    const p = { id: 'p' + Date.now(), companyId: s.adminCompany, nome: $('#np-nome').value.trim(), tel: $('#np-tel').value.trim(), cats, ativo: true, disponivel: true, soma: 0, qtd: 0 };
+    S.providers.push(p);
+    toast(`<b>${esc(p.nome)}</b> cadastrado. Um convite foi enviado para ${esc(p.tel)}.`);
+  }
+  if (f.id === 'form-signup') {
+    const u = { id: 'u' + Date.now(), nome: $('#su-nome').value.trim(), tel: $('#su-tel').value.trim(), empresas: [], soma: 0, qtd: 0 };
+    S.clients.push(u); s.clientId = u.id;
+    toast('Conta criada. Agora escolha as empresas que vão atender você.');
+  }
+  if (f.id === 'form-req') {
+    const r = {
+      id: S.nextId++, companyId: $('#nr-co').value, clientId: s.clientId, cat: $('#nr-cat').value,
+      titulo: $('#nr-titulo').value.trim(), desc: $('#nr-desc').value.trim(), endereco: $('#nr-end').value.trim(),
+      status: 'aberto', providerId: null, criado: Date.now(), recusados: [], aval: { cliente: null, prestador: null }, sim: null
+    };
+    S.requests.push(r);
+    const alvo = eligible(r);
+    alvo.forEach(p => notify(p.id, `Novo pedido de ${r.cat}: ${r.titulo}`, r.id));
+    toast(alvo.length
+      ? `Pedido #${r.id} enviado. Notificação para <b>${alvo.map(p => esc(p.nome)).join(', ')}</b>.`
+      : `Pedido #${r.id} enviado. Nenhum prestador disponível agora, a empresa vai atribuir manualmente.`);
+  }
+  if (f.classList.contains('chat-form')) {
+    const input = f.querySelector('input[type="text"]'), text = input.value.trim();
+    if (!text) return;
+    input.value = '';
+    S.msgs.push({ reqId: Number(f.dataset.req), from: f.dataset.side, text, img: null, lida: false, t: Date.now() });
+    render();
+    const again = document.getElementById(input.id); if (again) again.focus();
+    return;
+  }
+  if (f.classList.contains('rate')) {
+    const r = req(f.dataset.req), who = f.dataset.who;
+    const nota = Number(f.querySelector('input[name="nota"]:checked').value);
+    const coment = f.querySelector('input[type="text"]').value.trim();
+    r.aval[who] = { nota, coment };
+    const alvo = who === 'cliente' ? provider(r.providerId) : client(r.clientId);
+    alvo.soma += nota; alvo.qtd += 1;
+    notify(alvo.id, `Você recebeu uma avaliação de ${nota} estrela${nota > 1 ? 's' : ''} no pedido #${r.id}.`, r.id);
+    toast(`Avaliação enviada. A nota de ${esc(first(alvo.nome))} agora é ${avg(alvo).toFixed(1).replace('.', ',')}.`);
+  }
+  render();
+});
+
+render();
+</script>

@@ -1,10 +1,10 @@
 # Glossário
 
-> Decisão pendente (resolver no `/grill-with-docs`): termos em português também no código
-> (`pedido`, `prestador`) ou código em inglês com este glossário fazendo a ponte?
-> A coluna "No código" abaixo é uma proposta.
+Conversa, docs, tickets e interface usam os termos em português. Todo identificador no código
+(tabelas, colunas, enums, tipos, schemas Zod, rotas, eventos de socket) usa o nome em inglês da
+coluna "No código". Este glossário é a ponte entre os dois (ADR 0008).
 
-| Termo | No código (proposta) | Definição |
+| Termo | No código | Definição |
 |---|---|---|
 | Empresa | `company` | Tenant. Tem seus próprios usuários, categorias, prestadores e pedidos. |
 | Admin | `admin` | Usuário da empresa que cadastra/desativa prestadores, vê todos os pedidos e atribui manualmente. |
@@ -14,7 +14,7 @@
 | Vínculo | `membership` | Relação usuário ↔ empresa com um papel. Uma pessoa pode ter vínculos com várias empresas. |
 | Convite | `invite` | Forma de um prestador entrar: a empresa convida, a pessoa aceita. |
 | Categoria | `category` | Tipo de serviço de uma empresa (Elétrica, Hidráulica…). |
-| Pedido | `service_request` | Solicitação de serviço feita por um cliente para uma empresa, em uma categoria. |
+| Pedido | `service_request` | Solicitação de serviço feita por um cliente para uma empresa, em uma categoria. _Evitar:_ chamado, ordem de serviço. |
 | Disponível | `available` | Prestador que aceita receber avisos de pedidos novos agora. |
 | Aceite mútuo | `mutual_acceptance` | O prestador aceita o pedido e, depois, o cliente confirma o prestador. Os dois podem recusar. |
 | Recusa | `decline` | Prestador recusa um pedido, ou cliente recusa um prestador. Quem foi recusado deixa de ver aquele pedido. |
@@ -27,7 +27,7 @@
 
 ## Status do pedido
 
-| Status | No código (proposta) | Significado |
+| Status | No código | Significado |
 |---|---|---|
 | Aberto | `open` | Sem prestador. Visível para prestadores aptos (broadcast) e para o admin. |
 | Atribuído | `assigned` | Admin escolheu um prestador; aguarda o prestador aceitar. |

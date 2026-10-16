@@ -12,7 +12,9 @@
     "typecheck": "turbo run typecheck",
     "test": "turbo run test",
     "infra:up": "docker compose -f infra/docker-compose.yml up -d",
-    "infra:down": "docker compose -f infra/docker-compose.yml down"
+    "infra:down": "docker compose -f infra/docker-compose.yml down",
+    "test:e2e": "turbo run test:e2e",
+    "db:migrate": "pnpm --filter @despacho/api db:migrate"
   },
   "devDependencies": {
     "turbo": "^2.11.8",

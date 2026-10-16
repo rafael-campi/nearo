@@ -1,7 +1,7 @@
 import { nextServiceStep, serviceRequestStatusLabel, withdrawableStatuses, type OpenServiceRequest, type ProviderServiceRequest } from '@despacho/shared';
 import { FlashList } from '@shopify/flash-list';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Stack, useLocalSearchParams } from 'expo-router';
+import { router, Stack, useLocalSearchParams } from 'expo-router';
 import { useEffect } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
 import { ReasonAction } from '@/components/reason-action';
@@ -146,6 +146,16 @@ function MyRequests({ companyId, requests }: { companyId: string; requests: Prov
           <Text style={styles.status}>
             {r.status === 'awaiting_client' ? 'Aguardando o cliente confirmar' : serviceRequestStatusLabel[r.status]}
           </Text>
+          {r.details ? (
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Abrir conversa"
+              onPress={() => router.push({ pathname: '/chat/[id]', params: { id: r.id, companyId, as: 'provider', status: r.status } })}
+              style={({ pressed }) => [styles.button, styles.secondary, { marginTop: 8 }, pressed && { opacity: 0.7 }]}
+            >
+              <Text style={styles.secondaryText}>Conversa</Text>
+            </Pressable>
+          ) : null}
           {nextServiceStep[r.status] ? (
             <Pressable
               accessibilityRole="button"

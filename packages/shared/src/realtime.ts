@@ -13,6 +13,8 @@ export const socketEvents = {
   serviceRequestUpdated: 'service_request:updated',
   /** Servidor → prestador: a lista de pedidos abertos de uma empresa mudou. */
   openRequestsChanged: 'open_requests:changed',
+  /** Servidor → participantes (e quem acompanha o pedido): mensagem nova no chat. */
+  messageNew: 'message:new',
   /** Servidor → cliente: nova posição do prestador a caminho. */
   serviceRequestLocation: 'service_request:location',
   /** App → servidor: acompanhar um pedido (entra na sala dele, se tiver acesso). */

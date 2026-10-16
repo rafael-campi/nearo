@@ -5,6 +5,7 @@ export const queryKeys = {
   notifications: ['notifications'] as const,
   providerRequests: (companyId: string) => ['provider-requests', companyId] as const,
   providerLocation: (serviceRequestId: string) => ['provider-location', serviceRequestId] as const,
+  chat: (serviceRequestId: string) => ['chat', serviceRequestId] as const,
   openRequests: (companyId: string) => ['open-requests', companyId] as const,
   categoryOptions: (companyId: string) => ['category-options', companyId] as const,
   providerProfile: (companyId: string) => ['provider-profile', companyId] as const,

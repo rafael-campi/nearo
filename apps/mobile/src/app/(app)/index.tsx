@@ -1,5 +1,6 @@
 import {
   clientCancellableStatuses,
+  fullViewStatuses,
   serviceRequestStatusLabel,
   type MeResponse,
   type ProviderProfile,
@@ -173,6 +174,18 @@ function RequestRow({ request }: { request: ServiceRequest }) {
           {provider.name} · {provider.completedCount} {provider.completedCount === 1 ? 'pedido concluído' : 'pedidos concluídos'}
           {provider.phone ? ` · ${formatPhone(provider.phone)}` : ''}
         </Text>
+      ) : null}
+      {fullViewStatuses.includes(request.status) ? (
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Abrir conversa"
+          onPress={() =>
+            router.push({ pathname: '/chat/[id]', params: { id: request.id, companyId: request.companyId, as: 'client', status: request.status } })
+          }
+          style={({ pressed }) => [styles.action, styles.actionSecondary, { marginTop: 8 }, pressed && { opacity: 0.7 }]}
+        >
+          <Text style={styles.actionSecondaryText}>Conversa</Text>
+        </Pressable>
       ) : null}
       {request.status === 'en_route' ? (
         <Pressable

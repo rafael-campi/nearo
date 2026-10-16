@@ -176,6 +176,27 @@
       "when": 1792145273016,
       "tag": "0024_cancellation_rls",
       "breakpoints": true
+    },
+    {
+      "idx": 25,
+      "version": "7",
+      "when": 1792145570508,
+      "tag": "0025_messages",
+      "breakpoints": true
+    },
+    {
+      "idx": 26,
+      "version": "7",
+      "when": 1792145571235,
+      "tag": "0026_messages_rls",
+      "breakpoints": true
+    },
+    {
+      "idx": 27,
+      "version": "7",
+      "when": 1792145610655,
+      "tag": "0027_message_seq",
+      "breakpoints": true
     }
   ]
 }

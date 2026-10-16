@@ -1,4 +1,4 @@
-import type { EligibleProvider, RequestDecline, RequestEvent, ServiceRequest } from "@despacho/shared";
+import type { EligibleProvider, MessagePage, RequestDecline, RequestEvent, ServiceRequest } from "@despacho/shared";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { Suspense } from "react";
@@ -70,6 +70,9 @@ async function Detail({ params }: { params: Promise<{ id: string }> }) {
       <Suspense fallback={<p className="text-sm text-zinc-500">Carregando histórico…</p>}>
         <Events requestId={request.id} />
       </Suspense>
+      <Suspense fallback={<p className="text-sm text-zinc-500">Carregando conversa…</p>}>
+        <Chat requestId={request.id} />
+      </Suspense>
       {request.status !== "completed" && request.status !== "cancelled" ? <CancelForm requestId={request.id} /> : null}
     </>
   );
@@ -140,6 +143,28 @@ async function Events({ requestId }: { requestId: string }) {
               <span className="text-zinc-500">· {dateFormat.format(new Date(event.createdAt))}</span>
             </p>
             <p className="text-zinc-500">Motivo: {event.reason}</p>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+/** Conversa do pedido, só leitura: o admin lê o chat de qualquer pedido da empresa, sem escrever. */
+async function Chat({ requestId }: { requestId: string }) {
+  const res = await companyApi<MessagePage>(`/company/service-requests/${requestId}/messages`);
+  if (!res.ok) redirect("/login");
+  if (res.data.messages.length === 0) return null;
+  return (
+    <div>
+      <h2 className="mb-2 text-sm font-semibold">Conversa</h2>
+      <ul className="flex flex-col gap-2 rounded-xl border border-zinc-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-950">
+        {res.data.nextCursor ? <li className="text-xs text-zinc-400">Mostrando as mensagens mais recentes.</li> : null}
+        {res.data.messages.map((message) => (
+          <li key={message.id} className="text-sm">
+            <span className="font-medium">{message.senderName}</span>{" "}
+            <span className="text-xs text-zinc-400">{dateFormat.format(new Date(message.createdAt))}</span>
+            <p className="whitespace-pre-wrap">{message.body}</p>
           </li>
         ))}
       </ul>

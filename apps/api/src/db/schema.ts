@@ -2,6 +2,7 @@
 // as policies ficam em migrations SQL manuais.
 import { sql } from 'drizzle-orm';
 import {
+  bigint,
   boolean,
   doublePrecision,
   geometry,
@@ -207,7 +208,7 @@ export const serviceRequestDeclines = pgTable(
   (t) => [primaryKey({ columns: [t.serviceRequestId, t.providerMembershipId] })],
 );
 
-export const notificationType = pgEnum('notification_type', ['new_request', 'request_accepted', 'request_confirmed', 'request_declined', 'request_needs_assignment', 'request_assigned', 'request_unclaimed', 'request_reminder', 'request_expired', 'request_status', 'provider_nearby', 'request_cancelled', 'request_withdrawn']);
+export const notificationType = pgEnum('notification_type', ['new_request', 'request_accepted', 'request_confirmed', 'request_declined', 'request_needs_assignment', 'request_assigned', 'request_unclaimed', 'request_reminder', 'request_expired', 'request_status', 'provider_nearby', 'request_cancelled', 'request_withdrawn', 'new_message']);
 
 /** Atualização gravada para um usuário; o socket (e, depois, o push) a entrega. */
 export const notifications = pgTable('notifications', {
@@ -257,3 +258,30 @@ export const serviceRequestEvents = pgTable('service_request_events', {
   reason: text('reason').notNull(),
   createdAt: createdAt(),
 });
+
+export const messageSenderRole = pgEnum('message_sender_role', ['client', 'provider']);
+
+/** Chat do pedido: só cliente e prestador escrevem, de confirmado a em execução. */
+export const messages = pgTable(
+  'messages',
+  {
+    id: id(),
+    companyId: uuid('company_id')
+      .notNull()
+      .references(() => companies.id, { onDelete: 'cascade' }),
+    serviceRequestId: uuid('service_request_id')
+      .notNull()
+      .references(() => serviceRequests.id, { onDelete: 'cascade' }),
+    senderId: uuid('sender_id')
+      .notNull()
+      .references(() => users.id),
+    senderRole: messageSenderRole('sender_role').notNull(),
+    /** Gerado no app: reenviar a mesma mensagem não a duplica. */
+    clientMessageId: uuid('client_message_id').notNull(),
+    /** Ordem da conversa (mensagens no mesmo milissegundo não se embaralham); também é o cursor da paginação. */
+    seq: bigint('seq', { mode: 'number' }).generatedAlwaysAsIdentity(),
+    body: text('body').notNull(),
+    createdAt: createdAt(),
+  },
+  (t) => [unique('messages_idempotency').on(t.serviceRequestId, t.senderId, t.clientMessageId)],
+);

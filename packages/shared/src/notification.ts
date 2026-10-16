@@ -27,6 +27,8 @@ export const notificationTypeSchema = z.enum([
   'request_cancelled',
   /** Para o cliente: o prestador desistiu (ou foi desativado) e o pedido voltou para aberto. */
   'request_withdrawn',
+  /** Para o outro lado da conversa: mensagem nova (uma atualização por conversa até ser lida). */
+  'new_message',
 ]);
 export type NotificationType = z.infer<typeof notificationTypeSchema>;
 

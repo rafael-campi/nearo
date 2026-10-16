@@ -1,4 +1,5 @@
 import {
+  messageSchema,
   openRequestsChangedEventSchema,
   serviceRequestLocationEventSchema,
   serviceRequestUpdatedEventSchema,
@@ -41,6 +42,10 @@ export function useRealtime() {
         queryClient.invalidateQueries({ queryKey: queryKeys.myRequests });
         queryClient.invalidateQueries({ queryKey: queryKeys.providerRequests(event.data.companyId) });
       }
+    });
+    socket.on(socketEvents.messageNew, (payload: unknown) => {
+      const message = messageSchema.safeParse(payload);
+      if (message.success) queryClient.invalidateQueries({ queryKey: queryKeys.chat(message.data.serviceRequestId) });
     });
     socket.on(socketEvents.serviceRequestLocation, (payload: unknown) => {
       const event = serviceRequestLocationEventSchema.safeParse(payload);

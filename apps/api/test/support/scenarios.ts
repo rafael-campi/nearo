@@ -1,0 +1,50 @@
+import { COMPANY_HEADER } from '@despacho/shared';
+import type { INestApplication } from '@nestjs/common';
+import request from 'supertest';
+import { createCompany } from '../../src/scripts/create-company.js';
+import { createTestApp, type TestApp } from './app.js';
+import { testEnv } from './env.js';
+
+/**
+ * API como o app usa (despacho_app, sujeita a RLS) e um contexto de plataforma
+ * (dono das tabelas, como o script `company:create`), compartilhando relógio e e-mail.
+ */
+export interface Scenario extends TestApp {
+  platform: INestApplication;
+  close(): Promise<void>;
+}
+
+export async function createScenario(): Promise<Scenario> {
+  const api = await createTestApp();
+  const { app: platform } = await createTestApp({
+    databaseUrl: testEnv.MIGRATION_DATABASE_URL,
+    clock: api.clock,
+    mailer: api.mailer,
+  });
+  return {
+    ...api,
+    platform,
+    async close() {
+      await platform.close();
+      await api.app.close();
+    },
+  };
+}
+
+export const http = (s: TestApp) => request(s.app.getHttpServer());
+
+export function asUser(token: string, companyId?: string) {
+  const headers: Record<string, string> = { authorization: `Bearer ${token}` };
+  if (companyId) headers[COMPANY_HEADER] = companyId;
+  return headers;
+}
+
+/** Roda o script de criação de empresa e aceita o convite do primeiro admin. */
+export async function companyWithAdmin(s: Scenario, name: string, adminEmail: string) {
+  const { company } = await createCompany(s.platform, ['--name', name, '--admin-email', adminEmail]);
+  const res = await http(s)
+    .post(`/invites/${s.mailer.inviteTokenFor(adminEmail)}/accept`)
+    .send({ name: `Admin ${name}`, password: 'senha-segura' })
+    .expect(200);
+  return { companyId: company.id, token: res.body.token as string };
+}

@@ -58,7 +58,8 @@ pnpm test:e2e      # API contra Postgres e Redis reais (banco despacho_test; pre
 No mobile, adicione dependências com `npx expo install <pacote>` (ver `apps/mobile/AGENTS.md`).
 
 Banco: a API conecta como `despacho_app` (sujeito a RLS); migrations rodam como `despacho` (dono das tabelas).
-Nova tabela de domínio = `company_id` + `enable`/`force row level security` + policy usando `app.current_company_id()` + teste de isolamento.
+Nova tabela de domínio = `company_id` + `enable row level security` (sem `force`: o dono ignora RLS de propósito, para migrations e scripts de plataforma) + policy usando `app.current_company_id()` + teste de isolamento na API (404) e de RLS no Postgres.
+Rotas: autenticadas por padrão; `@Public()` libera, `@CompanyRoles(...)` exige vínculo ativo na empresa do cabeçalho `x-company-id`.
 Nova migration: edite o schema Drizzle e rode `pnpm --filter @despacho/api db:generate` (SQL manual: `db:generate --custom`).
 
 ## Agent skills

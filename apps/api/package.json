@@ -23,7 +23,8 @@
     "dev": "nest start --watch",
     "typecheck": "tsc --noEmit",
     "db:migrate": "drizzle-kit migrate",
-    "db:generate": "drizzle-kit generate"
+    "db:generate": "drizzle-kit generate",
+    "company:create": "nest build && node dist/scripts/create-company.js"
   },
   "dependencies": {
     "@despacho/shared": "workspace:*",

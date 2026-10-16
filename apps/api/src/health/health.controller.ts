@@ -1,6 +1,7 @@
 import { Controller, Get, Inject, ServiceUnavailableException } from '@nestjs/common';
 import { Redis } from 'ioredis';
 import { Pool } from 'pg';
+import { Public } from '../auth/decorators.js';
 import { Clock } from '../clock.js';
 import { PG_POOL } from '../db/database.module.js';
 import { REDIS } from '../redis/redis.module.js';
@@ -16,6 +17,7 @@ async function check(probe: () => Promise<unknown>): Promise<Check> {
   }
 }
 
+@Public()
 @Controller('health')
 export class HealthController {
   constructor(

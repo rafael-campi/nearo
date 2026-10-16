@@ -3,6 +3,7 @@ import { CanActivate, Controller, ExecutionContext, Get, Injectable, UseGuards }
 import { sql } from 'drizzle-orm';
 import { Pool } from 'pg';
 import request from 'supertest';
+import { Public } from '../src/auth/decorators.js';
 import { PG_POOL } from '../src/db/database.module.js';
 import type { TenantRequest } from '../src/db/tenant-transaction.interceptor.js';
 import { TenantTransactions } from '../src/db/tenant-transactions.js';
@@ -20,6 +21,7 @@ class HeaderTenantGuard implements CanActivate {
   }
 }
 
+@Public()
 @Controller('tenant-probe')
 @UseGuards(HeaderTenantGuard)
 class TenantProbeController {

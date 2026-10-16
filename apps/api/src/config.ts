@@ -4,6 +4,8 @@ const configSchema = z.object({
   DATABASE_URL: z.url(),
   REDIS_URL: z.url(),
   PORT: z.coerce.number().int().positive().default(3000),
+  /** Base dos links enviados por e-mail (convites). */
+  ADMIN_URL: z.url().default('http://localhost:3001'),
 });
 
 export type AppConfig = z.infer<typeof configSchema>;

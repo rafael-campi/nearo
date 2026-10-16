@@ -2,7 +2,7 @@ import { INestApplication, ModuleMetadata } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import { AppModule } from '../../src/app.module.js';
 import { Clock } from '../../src/clock.js';
-import { APP_CONFIG, loadConfig } from '../../src/config.js';
+import { APP_CONFIG, loadConfig, type AppConfig } from '../../src/config.js';
 import { ReverseGeocoder } from '../../src/geocoding/reverse-geocoder.js';
 import { Mailer } from '../../src/mail/mailer.js';
 import { PushSender } from '../../src/push/push-sender.js';
@@ -30,11 +30,13 @@ export interface TestAppOptions extends ModuleMetadata {
   geocoder?: FakeGeocoder;
   storage?: FakeStorage;
   push?: FakePushSender;
+  /** Ajustes na configuração (ex.: ligar o limite de tentativas). */
+  config?: Partial<AppConfig>;
 }
 
 /** Sobe a API inteira com relógio e e-mail falsos. Aceita controllers/providers só de teste. */
 export async function createTestApp(options: TestAppOptions = {}): Promise<TestApp> {
-  const { databaseUrl, clock = new FakeClock(), mailer = new FakeMailer(), geocoder = new FakeGeocoder(), storage = new FakeStorage(), push = new FakePushSender(), ...extra } = options;
+  const { databaseUrl, clock = new FakeClock(), mailer = new FakeMailer(), geocoder = new FakeGeocoder(), storage = new FakeStorage(), push = new FakePushSender(), config: overrides, ...extra } = options;
   const config = loadConfig(process.env);
   const moduleRef = await Test.createTestingModule({ imports: [AppModule], ...extra })
     .overrideProvider(Clock)
@@ -48,7 +50,7 @@ export async function createTestApp(options: TestAppOptions = {}): Promise<TestA
     .overrideProvider(ReverseGeocoder)
     .useValue(geocoder)
     .overrideProvider(APP_CONFIG)
-    .useValue({ ...config, DATABASE_URL: databaseUrl ?? config.DATABASE_URL })
+    .useValue({ ...config, DATABASE_URL: databaseUrl ?? config.DATABASE_URL, ...overrides })
     .compile();
   const app = moduleRef.createNestApplication();
   await app.init();

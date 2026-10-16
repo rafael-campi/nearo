@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { useMode } from './mode';
-import { unregisterDeviceToken } from './push-unregister';
+import { endServerSession } from './push-unregister';
 import { queryClient } from './query';
 import { tokenStorage } from './token-storage';
 
@@ -29,7 +29,7 @@ export const useSession = create<SessionState>((set) => ({
     set({ token, status: 'signedIn' });
   },
   async signOut() {
-    await unregisterDeviceToken(useSession.getState().token);
+    await endServerSession(useSession.getState().token);
     await tokenStorage.clear();
     queryClient.clear();
     useMode.setState({ mode: null, promptedBaseLocation: false });

@@ -4,4 +4,5 @@ export const testEnv = {
   MIGRATION_DATABASE_URL: 'postgres://despacho:despacho@localhost:5433/despacho_test',
   REDIS_URL: 'redis://localhost:6379/1',
   WORKERS: 'off',
+  RATE_LIMIT: 'off',
 };

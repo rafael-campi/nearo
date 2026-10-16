@@ -9,6 +9,7 @@ import {
   type InvitePreview,
 } from '@despacho/shared';
 import { CompanyRoles, Public, Tenant } from '../auth/decorators.js';
+import { RateLimit } from '../auth/rate-limit.js';
 import { CompaniesService } from '../companies/companies.service.js';
 import { ZodPipe } from '../common/zod.pipe.js';
 import { TenantTransactions, type TenantContext } from '../db/tenant-transactions.js';
@@ -23,12 +24,17 @@ export class InvitesController {
   ) {}
 
   @Public()
+  @RateLimit({ scope: 'invite', limit: 60, windowSeconds: 15 * 60, by: 'ip' })
   @Get('invites/:token')
   preview(@Param('token') token: string): Promise<InvitePreview> {
     return this.invites.preview(token);
   }
 
   @Public()
+  @RateLimit(
+    { scope: 'invite-accept', limit: 20, windowSeconds: 15 * 60, by: 'ip' },
+    { scope: 'invite-accept', limit: 10, windowSeconds: 15 * 60, by: 'token' },
+  )
   @Post('invites/:token/accept')
   @HttpCode(200)
   accept(

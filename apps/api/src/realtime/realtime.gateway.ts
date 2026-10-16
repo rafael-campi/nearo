@@ -7,10 +7,11 @@ import {
   SubscribeMessage,
   WebSocketGateway,
 } from '@nestjs/websockets';
-import { serviceRequestRoom, socketEvents, subscribeServiceRequestSchema, userRoom } from '@despacho/shared';
+import { serviceRequestRoom, sessionRoom, socketEvents, subscribeServiceRequestSchema, userRoom } from '@despacho/shared';
 import { createAdapter } from '@socket.io/redis-adapter';
 import { Redis } from 'ioredis';
 import type { Server, Socket } from 'socket.io';
+import { hashToken } from '../auth/crypto.js';
 import { SessionsService } from '../auth/sessions.service.js';
 import { REDIS } from '../redis/redis.module.js';
 import { ServiceRequestsService } from '../service-requests/service-requests.service.js';
@@ -18,6 +19,7 @@ import { RealtimeService } from './realtime.service.js';
 
 interface SocketData {
   userId: string;
+  tokenHash: string;
 }
 
 /**
@@ -52,16 +54,19 @@ export class RealtimeGateway implements OnGatewayInit, OnGatewayConnection, OnAp
         (userId) => {
           if (!userId) return next(new Error('Não autenticado'));
           (socket.data as SocketData).userId = userId;
+          (socket.data as SocketData).tokenHash = hashToken(token as string);
           next();
         },
         () => next(new Error('Não autenticado')),
       );
     });
     this.realtime.attach(server);
+    // Sessão revogada (sair, trocar a senha, excluir a conta): o socket aberto com ela cai.
+    this.sessions.onRevoked((revocation) => this.realtime.disconnect(revocation));
   }
 
   async handleConnection(client: Socket<never, never, never, SocketData>): Promise<void> {
-    await client.join(userRoom(client.data.userId));
+    await client.join([userRoom(client.data.userId), sessionRoom(client.data.tokenHash)]);
   }
 
   @SubscribeMessage(socketEvents.subscribeServiceRequest)

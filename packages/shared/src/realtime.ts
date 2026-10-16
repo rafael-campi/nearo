@@ -22,6 +22,8 @@ export const socketEvents = {
 } as const;
 
 export const userRoom = (userId: string) => `user:${userId}`;
+/** Sala dos sockets abertos com uma sessão (identificada pelo hash do token), para derrubá-los ao revogar. */
+export const sessionRoom = (tokenHash: string) => `session:${tokenHash}`;
 export const serviceRequestRoom = (serviceRequestId: string) => `service_request:${serviceRequestId}`;
 
 export const notificationEventSchema = notificationSchema;

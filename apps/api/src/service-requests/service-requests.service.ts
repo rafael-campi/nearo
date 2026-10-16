@@ -582,6 +582,8 @@ export class ServiceRequestsService {
     await this.dispatch(request, 'reopened', extraUsers);
     const clientId = await this.clientOf(request.id);
     this.announceStatus(request, [clientId, ...extraUsers]);
+    // Quem deixou o pedido (desistiu, foi recusado, expirou) não acompanha mais a conversa dele.
+    this.transactions.afterCommit(() => this.realtime.removeFromServiceRequest(extraUsers, request.id));
   }
 
   private async clientOf(serviceRequestId: string): Promise<string> {

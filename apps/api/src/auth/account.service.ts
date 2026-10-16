@@ -6,6 +6,7 @@ import { users } from '../db/schema.js';
 import { TenantTransactions } from '../db/tenant-transactions.js';
 import { AuthService } from './auth.service.js';
 import { hashPassword } from './crypto.js';
+import { SessionsService } from './sessions.service.js';
 
 const BLOCKED: Record<string, string> = {
   client_request: 'Você tem um pedido aberto ou em andamento. Cancele ou aguarde a conclusão antes de excluir a conta.',
@@ -20,6 +21,7 @@ export class AccountService {
     private readonly transactions: TenantTransactions,
     private readonly auth: AuthService,
     private readonly clock: Clock,
+    private readonly sessions: SessionsService,
   ) {}
 
   async delete(userId: string, password: string): Promise<void> {
@@ -39,5 +41,7 @@ export class AccountService {
     const blocker = rows[0].blocker;
     if (blocker === 'not_found') throw new NotFoundException();
     if (blocker) throw new ConflictException(BLOCKED[blocker]);
+    // A função apagou as sessões; os sockets abertos dessa conta caem depois do commit.
+    this.transactions.afterCommit(() => this.sessions.revokedAllOf(userId));
   }
 }

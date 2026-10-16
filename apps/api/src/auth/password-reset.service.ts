@@ -6,6 +6,7 @@ import { passwordResets, sessions, users } from '../db/schema.js';
 import { DATABASE, type Database } from '../db/tenant-transactions.js';
 import { Mailer } from '../mail/mailer.js';
 import { hashPassword, hashToken, newToken } from './crypto.js';
+import { SessionsService } from './sessions.service.js';
 
 const TOKEN_TTL_MS = 60 * 60_000;
 /** No máximo um e-mail por minuto para a mesma conta. */
@@ -19,6 +20,7 @@ export class PasswordResetService {
     @Inject(APP_CONFIG) private readonly config: AppConfig,
     private readonly mailer: Mailer,
     private readonly clock: Clock,
+    private readonly sessions: SessionsService,
   ) {}
 
   /** Envia o link se a conta existir. Quem chama responde igual nos dois casos (não revela o e-mail). */
@@ -65,25 +67,26 @@ export class PasswordResetService {
   async reset(token: string, password: string): Promise<void> {
     const now = this.clock.now();
     const passwordHash = await hashPassword(password);
-    const done = await this.db.transaction(async (tx) => {
+    const userId = await this.db.transaction(async (tx) => {
       // Marca primeiro: de dois usos simultâneos, só um encontra o link em aberto.
       const [claimed] = await tx
         .update(passwordResets)
         .set({ usedAt: now })
         .where(and(eq(passwordResets.tokenHash, hashToken(token)), isNull(passwordResets.usedAt), gt(passwordResets.expiresAt, now)))
         .returning({ userId: passwordResets.userId });
-      if (!claimed) return false;
+      if (!claimed) return null;
       const updated = await tx
         .update(users)
         .set({ passwordHash })
         .where(and(eq(users.id, claimed.userId), isNull(users.deletedAt)))
         .returning({ id: users.id });
-      if (updated.length === 0) return false;
+      if (updated.length === 0) return null;
       // Quem esqueceu a senha pode ter a conta aberta em outro lugar: todas as sessões saem.
       await tx.delete(sessions).where(eq(sessions.userId, claimed.userId));
       await tx.update(passwordResets).set({ usedAt: now }).where(and(eq(passwordResets.userId, claimed.userId), isNull(passwordResets.usedAt)));
-      return true;
+      return claimed.userId;
     });
-    if (!done) throw new BadRequestException('Link inválido ou expirado. Peça um novo.');
+    if (!userId) throw new BadRequestException('Link inválido ou expirado. Peça um novo.');
+    this.sessions.revokedAllOf(userId);
   }
 }

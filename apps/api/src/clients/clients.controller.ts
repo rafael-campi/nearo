@@ -8,6 +8,7 @@ import {
   type UpdateClientRequest,
 } from '@despacho/shared';
 import { CompanyRoles, Tenant } from '../auth/decorators.js';
+import { RateLimit } from '../auth/rate-limit.js';
 import { ZodPipe } from '../common/zod.pipe.js';
 import type { TenantContext } from '../db/tenant-transactions.js';
 import { ClientsService } from './clients.service.js';
@@ -16,6 +17,7 @@ import { ClientsService } from './clients.service.js';
 export class ClientsController {
   constructor(private readonly clients: ClientsService) {}
 
+  @RateLimit({ scope: 'join', limit: 20, windowSeconds: 15 * 60, by: 'ip' })
   @Post('join')
   @HttpCode(200)
   join(

@@ -20,6 +20,10 @@ import { AccountService } from './account.service.js';
 import { AuthService } from './auth.service.js';
 import { PasswordResetService } from './password-reset.service.js';
 import { Public, Tenant } from './decorators.js';
+import { RateLimit } from './rate-limit.js';
+
+const QUARTER_HOUR = 15 * 60;
+const HOUR = 60 * 60;
 import { SessionsService } from './sessions.service.js';
 
 @Controller()
@@ -32,6 +36,10 @@ export class AuthController {
   ) {}
 
   @Public()
+  @RateLimit(
+    { scope: 'login', limit: 30, windowSeconds: QUARTER_HOUR, by: 'ip' },
+    { scope: 'login', limit: 10, windowSeconds: QUARTER_HOUR, by: 'email' },
+  )
   @Post('auth/login')
   @HttpCode(200)
   async login(@Body(new ZodPipe(loginRequestSchema)) body: LoginRequest): Promise<SessionResponse> {
@@ -39,6 +47,7 @@ export class AuthController {
   }
 
   @Public()
+  @RateLimit({ scope: 'signup', limit: 10, windowSeconds: HOUR, by: 'ip' })
   @Post('auth/signup')
   async signup(@Body(new ZodPipe(signupRequestSchema)) body: SignupRequest): Promise<SessionResponse> {
     return { token: await this.auth.signup(body) };
@@ -46,6 +55,10 @@ export class AuthController {
 
   /** Sempre 204, exista ou não a conta: o pedido não revela quais e-mails estão cadastrados. */
   @Public()
+  @RateLimit(
+    { scope: 'forgot', limit: 10, windowSeconds: HOUR, by: 'ip' },
+    { scope: 'forgot', limit: 5, windowSeconds: HOUR, by: 'email' },
+  )
   @Post('auth/forgot-password')
   @HttpCode(204)
   async forgotPassword(@Body(new ZodPipe(forgotPasswordRequestSchema)) body: ForgotPasswordRequest): Promise<void> {
@@ -53,6 +66,7 @@ export class AuthController {
   }
 
   @Public()
+  @RateLimit({ scope: 'reset', limit: 10, windowSeconds: QUARTER_HOUR, by: 'ip' })
   @Post('auth/reset-password')
   @HttpCode(204)
   async resetPassword(@Body(new ZodPipe(resetPasswordRequestSchema)) body: ResetPasswordRequest): Promise<void> {

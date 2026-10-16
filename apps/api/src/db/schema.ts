@@ -42,12 +42,15 @@ export const sessions = pgTable('sessions', {
   createdAt: createdAt(),
 });
 
+export const assignmentMode = pgEnum('assignment_mode', ['manual', 'broadcast']);
+
 export const companies = pgTable('companies', {
   id: id(),
   name: text('name').notNull(),
   /** Código de acesso que a empresa divulga para clientes. */
   joinCode: text('join_code').notNull().unique(),
   active: boolean('active').notNull().default(true),
+  assignmentMode: assignmentMode('assignment_mode').notNull().default('broadcast'),
   createdAt: createdAt(),
 });
 
@@ -164,6 +167,8 @@ export const serviceRequests = pgTable('service_requests', {
   providerMembershipId: uuid('provider_membership_id').references(() => memberships.id),
   acceptedAt: timestamp('accepted_at', { withTimezone: true }),
   confirmedAt: timestamp('confirmed_at', { withTimezone: true }),
+  /** Os prestadores aptos veem e aceitam o pedido aberto (modo da empresa quando ele foi criado ou reaberto). */
+  broadcast: boolean('broadcast').notNull().default(true),
   createdAt: createdAt(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
 });
@@ -189,7 +194,7 @@ export const serviceRequestDeclines = pgTable(
   (t) => [primaryKey({ columns: [t.serviceRequestId, t.providerMembershipId] })],
 );
 
-export const notificationType = pgEnum('notification_type', ['new_request', 'request_accepted', 'request_confirmed', 'request_declined']);
+export const notificationType = pgEnum('notification_type', ['new_request', 'request_accepted', 'request_confirmed', 'request_declined', 'request_needs_assignment', 'request_assigned']);
 
 /** Atualização gravada para um usuário; o socket (e, depois, o push) a entrega. */
 export const notifications = pgTable('notifications', {

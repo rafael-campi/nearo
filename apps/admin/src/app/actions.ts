@@ -9,6 +9,8 @@ import {
   createInviteRequestSchema,
   loginRequestSchema,
   type AcceptInviteResponse,
+  type Company,
+  updateCompanySettingsRequestSchema,
   type Invite,
   type MembershipRole,
   type Provider,
@@ -143,4 +145,25 @@ export async function setProviderCategories(membershipId: string, _: FormState, 
   if (!res.ok) return { message: errorMessage(res.data, "Não foi possível salvar as categorias") };
   refresh();
   return { success: true, message: "Categorias salvas" };
+}
+
+export async function setAssignmentMode(_: FormState, formData: FormData): Promise<FormState> {
+  const input = updateCompanySettingsRequestSchema.safeParse({ assignmentMode: formData.get("assignmentMode") });
+  if (!input.success) return { message: "Escolha um modo de atribuição" };
+  const res = await companyApi<Company>("/company/settings", { method: "PATCH", body: input.data });
+  if (!res.ok) return { message: errorMessage(res.data, "Não foi possível salvar") };
+  refresh();
+  return { success: true, message: "Modo de atribuição salvo" };
+}
+
+export async function assignRequest(requestId: string, providerMembershipId: string): Promise<FormState> {
+  const res = await companyApi(`/company/service-requests/${requestId}/assign`, { method: "POST", body: { providerMembershipId } });
+  if (!res.ok) return { message: errorMessage(res.data, "Não foi possível atribuir") };
+  refresh();
+  return { success: true, message: "Pedido atribuído" };
+}
+
+export async function markNotificationsRead(): Promise<void> {
+  await companyApi("/my/notifications/read", { method: "POST" });
+  refresh();
 }

@@ -143,7 +143,8 @@ function RequestRow({ request }: { request: ServiceRequest }) {
   const error = confirm.error ?? refuse.error;
   const { provider } = request;
 
-  const status = request.status === 'open' ? 'Procurando prestador' : serviceRequestStatusLabel[request.status];
+  const searching = request.status === 'open' || request.status === 'assigned';
+  const status = searching ? 'Procurando prestador' : serviceRequestStatusLabel[request.status];
   return (
     <View style={styles.company} accessibilityLabel={`Pedido de ${request.categoryName}: ${status}`}>
       <Text style={styles.companyName}>
@@ -152,7 +153,7 @@ function RequestRow({ request }: { request: ServiceRequest }) {
       <Text style={styles.detail} numberOfLines={2}>
         {request.description}
       </Text>
-      <Text style={[styles.detail, request.status === 'open' && styles.searching]}>
+      <Text style={[styles.detail, searching && styles.searching]}>
         {status} · {requestDate.format(new Date(request.createdAt))}
       </Text>
       {provider ? (

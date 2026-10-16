@@ -3,9 +3,18 @@ import { z } from 'zod';
 /** Cabeçalho que indica em qual empresa a requisição age. */
 export const COMPANY_HEADER = 'x-company-id';
 
+/** Define o que acontece quando um pedido é criado (ou volta para aberto); o admin pode atribuir em qualquer modo. */
+export const assignmentModeSchema = z.enum(['manual', 'broadcast']);
+export type AssignmentMode = z.infer<typeof assignmentModeSchema>;
+export const assignmentModeLabel: Record<AssignmentMode, string> = {
+  manual: 'Manual',
+  broadcast: 'Broadcast',
+};
+
 export const companySchema = z.object({
   id: z.uuid(),
   name: z.string(),
+  assignmentMode: assignmentModeSchema,
 });
 export type Company = z.infer<typeof companySchema>;
 
@@ -36,3 +45,6 @@ export type Client = z.infer<typeof clientSchema>;
 
 export const updateClientRequestSchema = z.object({ active: z.boolean() });
 export type UpdateClientRequest = z.infer<typeof updateClientRequestSchema>;
+
+export const updateCompanySettingsRequestSchema = z.object({ assignmentMode: assignmentModeSchema });
+export type UpdateCompanySettingsRequest = z.infer<typeof updateCompanySettingsRequestSchema>;

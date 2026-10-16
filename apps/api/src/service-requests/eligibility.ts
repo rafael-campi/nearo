@@ -5,7 +5,7 @@ import { sql, type SQL } from 'drizzle-orm';
  * pedido dentro da área de atendimento (PostGIS), sem recusa para o pedido e não é o autor do pedido.
  * Devolve pares (pedido, prestador) com a distância; os filtros escolhem o recorte.
  */
-export function eligiblePairs(filter: { serviceRequestId?: string; membershipId?: string; openOnly?: boolean }): SQL {
+export function eligiblePairs(filter: { serviceRequestId?: string; membershipId?: string; openOnly?: boolean; broadcastOnly?: boolean }): SQL {
   return sql`
     select r.id as service_request_id,
            m.id as membership_id,
@@ -20,6 +20,7 @@ export function eligiblePairs(filter: { serviceRequestId?: string; membershipId?
        ${filter.serviceRequestId ? sql`and r.id = ${filter.serviceRequestId}` : sql``}
        ${filter.membershipId ? sql`and m.id = ${filter.membershipId}` : sql``}
        ${filter.openOnly ? sql`and r.status = 'open'` : sql``}
+       ${filter.broadcastOnly ? sql`and r.broadcast` : sql``}
        and m.user_id <> r.client_id
        and not app.provider_has_active_request(m.user_id)
        and exists (

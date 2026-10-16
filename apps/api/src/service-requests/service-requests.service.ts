@@ -4,6 +4,8 @@ import {
   socketEvents,
   type AcceptServiceRequestResponse,
   type CategoryOption,
+  type EligibleProvider,
+  type RequestDecline,
   type ConfirmServiceRequestResponse,
   type OpenServiceRequest,
   type ProviderServiceRequest,
@@ -74,13 +76,51 @@ export class ServiceRequestsService {
       })
       .returning({ id: serviceRequests.id });
     const [request] = await this.find(eq(serviceRequests.id, created.id));
-    await this.broadcast(request);
+    await this.dispatch(request, 'created');
     return request;
+  }
+
+  /**
+   * Pedido novo ou que voltou a ficar aberto. Broadcast: avisa os prestadores aptos. Manual: avisa os
+   * admins, que atribuem. O modo vale para este momento; o pedido guarda o que foi decidido.
+   */
+  private async dispatch(request: ServiceRequest, reason: 'created' | 'reopened', alsoRefresh: string[] = []): Promise<void> {
+    const [company] = await this.transactions
+      .current()
+      .select({ mode: companies.assignmentMode })
+      .from(companies)
+      .where(eq(companies.id, sql`app.current_company_id()`));
+    const broadcast = company.mode === 'broadcast';
+    await this.transactions
+      .current()
+      .update(serviceRequests)
+      .set({ broadcast })
+      .where(eq(serviceRequests.id, request.id));
+    if (broadcast) return this.broadcast(request, alsoRefresh);
+    await this.notifyAdmins(request, reason);
+    this.announceOpenRequestsChanged(alsoRefresh, request.companyId);
+  }
+
+  private async notifyAdmins(request: ServiceRequest, reason: 'created' | 'reopened'): Promise<void> {
+    const admins = await this.transactions
+      .current()
+      .select({ userId: memberships.userId })
+      .from(memberships)
+      .where(
+        and(eq(memberships.companyId, sql`app.current_company_id()`), eq(memberships.role, 'admin'), eq(memberships.active, true)),
+      );
+    await this.notifications.notify({
+      userIds: admins.map((a) => a.userId),
+      type: 'request_needs_assignment',
+      title: reason === 'created' ? `Pedido novo para atribuir: ${request.categoryName}` : `Pedido voltou para aberto: ${request.categoryName}`,
+      body: [request.neighborhood, request.clientName].filter(Boolean).join(' · '),
+      serviceRequestId: request.id,
+    });
   }
 
   /** Broadcast: avisa os prestadores aptos de um pedido novo (ou que voltou a ficar aberto). */
   private async broadcast(request: ServiceRequest, alsoRefresh: string[] = []): Promise<void> {
-    const eligible = await this.eligible({ serviceRequestId: request.id });
+    const eligible = await this.eligible({ serviceRequestId: request.id, broadcastOnly: true });
     // Cada prestador recebe a distância a partir do próprio endereço-base.
     for (const provider of eligible) {
       await this.notifications.notify({
@@ -94,12 +134,25 @@ export class ServiceRequestsService {
     this.announceOpenRequestsChanged([...eligible.map((e) => e.user_id), ...alsoRefresh], request.companyId);
   }
 
-  /** Pedidos abertos para os quais o prestador (vínculo próprio nesta empresa) é apto: visão reduzida. */
+  /**
+   * Pedidos abertos para os quais o prestador (vínculo próprio nesta empresa) é apto, mais os que o admin
+   * atribuiu a ele: visão reduzida.
+   */
   async openForProvider(userId: string): Promise<OpenServiceRequest[]> {
     const membershipId = await this.ownProviderMembership(userId);
-    const pairs = await this.eligible({ membershipId, openOnly: true });
-    if (pairs.length === 0) return [];
-    const meters = new Map(pairs.map((p) => [p.service_request_id, p.meters]));
+    const pairs = await this.eligible({ membershipId, openOnly: true, broadcastOnly: true });
+    const { rows: assignedRows } = await this.transactions.current().execute<{ id: string; meters: number | null }>(sql`
+      select r.id,
+             st_distance(p.base_location::geography, r.location::geography) as meters
+        from service_requests r
+        left join provider_profiles p on p.membership_id = r.provider_membership_id
+       where r.status = 'assigned' and r.provider_membership_id = ${membershipId}`);
+    const assigned = new Set(assignedRows.map((r) => r.id));
+    const meters = new Map<string, number>([
+      ...pairs.map((p) => [p.service_request_id, p.meters] as const),
+      ...assignedRows.map((r) => [r.id, Number(r.meters ?? 0)] as const),
+    ]);
+    if (meters.size === 0) return [];
     const rows = await this.find(inArray(serviceRequests.id, [...meters.keys()]));
     return rows.map((r) => ({
       id: r.id,
@@ -109,6 +162,7 @@ export class ServiceRequestsService {
       neighborhood: r.neighborhood,
       distanceKm: Math.round((meters.get(r.id) ?? 0) / 100) / 10,
       clientFirstName: r.clientName.split(' ')[0],
+      assigned: assigned.has(r.id),
       createdAt: r.createdAt,
     }));
   }
@@ -121,15 +175,25 @@ export class ServiceRequestsService {
     const membershipId = await this.ownProviderMembership(userId);
     const tx = this.transactions.current();
     const [locked] = await tx
-      .select({ status: serviceRequests.status, clientId: serviceRequests.clientId })
+      .select({
+        status: serviceRequests.status,
+        clientId: serviceRequests.clientId,
+        providerMembershipId: serviceRequests.providerMembershipId,
+      })
       .from(serviceRequests)
       .where(eq(serviceRequests.id, serviceRequestId))
       .for('update');
     if (!locked) throw new NotFoundException();
-    if (locked.status !== 'open') throw new ConflictException('Pedido não está mais disponível');
 
-    const eligible = await this.eligible({ serviceRequestId });
-    if (!eligible.some((e) => e.membership_id === membershipId)) throw new NotFoundException();
+    // Atribuído pelo admin: só o prestador escolhido aceita. Aberto: qualquer apto (broadcast).
+    let eligible: EligiblePair[] = [];
+    if (locked.status === 'assigned') {
+      if (locked.providerMembershipId !== membershipId) throw new NotFoundException();
+    } else {
+      if (locked.status !== 'open') throw new ConflictException('Pedido não está mais disponível');
+      eligible = await this.eligible({ serviceRequestId, broadcastOnly: true });
+      if (!eligible.some((e) => e.membership_id === membershipId)) throw new NotFoundException();
+    }
 
     const now = this.clock.now();
     await tx
@@ -151,22 +215,117 @@ export class ServiceRequestsService {
       this.realtime.toUser(locked.clientId, socketEvents.serviceRequestUpdated, event);
       this.realtime.toServiceRequest(serviceRequestId, socketEvents.serviceRequestUpdated, event);
     });
+    this.announceOpenRequestsChanged([userId, ...eligible.map((e) => e.user_id)], request.companyId);
+    return { id: serviceRequestId, status: request.status };
+  }
+
+  /**
+   * Recusa do prestador: registrada; ele deixa de ver o pedido. Se o admin tinha atribuído o pedido a
+   * ele, o pedido volta para `open` e segue o modo da empresa (aptos avisados, ou admin avisado).
+   */
+  async decline(userId: string, serviceRequestId: string): Promise<void> {
+    const membershipId = await this.ownProviderMembership(userId);
+    const tx = this.transactions.current();
+    const [locked] = await tx
+      .select({ status: serviceRequests.status, providerMembershipId: serviceRequests.providerMembershipId })
+      .from(serviceRequests)
+      .where(eq(serviceRequests.id, serviceRequestId))
+      .for('update');
+    const wasAssigned = locked?.status === 'assigned' && locked.providerMembershipId === membershipId;
+    if (!wasAssigned) {
+      const visible = await this.eligible({ serviceRequestId, membershipId, openOnly: true, broadcastOnly: true });
+      if (visible.length === 0) throw new NotFoundException();
+    }
+    await tx
+      .insert(serviceRequestDeclines)
+      .values({ companyId: sql`app.current_company_id()`, serviceRequestId, providerMembershipId: membershipId, by: 'provider' })
+      .onConflictDoNothing();
+    if (wasAssigned) {
+      await this.reopen(serviceRequestId, this.clock.now());
+      const [request] = await this.find(eq(serviceRequests.id, serviceRequestId));
+      await this.afterReopen(request, [userId]);
+      return;
+    }
+    const [request] = await this.find(eq(serviceRequests.id, serviceRequestId));
+    this.announceOpenRequestsChanged([userId], request.companyId);
+  }
+
+  /** Admin atribui um pedido aberto a um prestador apto; o prestador aceita ou recusa. */
+  async assign(serviceRequestId: string, providerMembershipId: string): Promise<AcceptServiceRequestResponse> {
+    const tx = this.transactions.current();
+    const [locked] = await tx
+      .select({ status: serviceRequests.status, clientId: serviceRequests.clientId })
+      .from(serviceRequests)
+      .where(eq(serviceRequests.id, serviceRequestId))
+      .for('update');
+    if (!locked) throw new NotFoundException();
+    if (locked.status !== 'open') throw new ConflictException('Pedido não está aberto');
+
+    const eligible = await this.eligible({ serviceRequestId });
+    const chosen = eligible.find((e) => e.membership_id === providerMembershipId);
+    if (!chosen) {
+      throw new BadRequestException({
+        message: 'Dados inválidos',
+        issues: [{ path: 'providerMembershipId', message: 'Prestador não está apto para este pedido' }],
+      });
+    }
+    const now = this.clock.now();
+    await tx
+      .update(serviceRequests)
+      .set({ status: 'assigned', providerMembershipId, updatedAt: now })
+      .where(eq(serviceRequests.id, serviceRequestId));
+    const [request] = await this.find(eq(serviceRequests.id, serviceRequestId));
+    await this.notifications.notify({
+      userIds: [chosen.user_id],
+      type: 'request_assigned',
+      title: `Pedido atribuído a você: ${request.categoryName}`,
+      body: [request.neighborhood, `a ${formatKm(chosen.meters)} de você`].filter(Boolean).join(' · '),
+      serviceRequestId,
+    });
+    this.announceStatus(request, [locked.clientId, chosen.user_id]);
     this.announceOpenRequestsChanged(eligible.map((e) => e.user_id), request.companyId);
     return { id: serviceRequestId, status: request.status };
   }
 
-  /** Recusa do prestador: registrada; ele deixa de ver o pedido. */
-  async decline(userId: string, serviceRequestId: string): Promise<void> {
-    const membershipId = await this.ownProviderMembership(userId);
-    const visible = await this.eligible({ serviceRequestId, membershipId, openOnly: true });
-    if (visible.length === 0) throw new NotFoundException();
-    await this.transactions
+  /** Prestadores aptos para um pedido aberto, para o admin escolher. */
+  async eligibleProviders(serviceRequestId: string): Promise<EligibleProvider[]> {
+    const [row] = await this.transactions
       .current()
-      .insert(serviceRequestDeclines)
-      .values({ companyId: sql`app.current_company_id()`, serviceRequestId, providerMembershipId: membershipId, by: 'provider' })
-      .onConflictDoNothing();
-    const [request] = await this.find(eq(serviceRequests.id, serviceRequestId));
-    this.announceOpenRequestsChanged([userId], request.companyId);
+      .select({ status: serviceRequests.status })
+      .from(serviceRequests)
+      .where(eq(serviceRequests.id, serviceRequestId));
+    if (!row) throw new NotFoundException();
+    if (row.status !== 'open') return [];
+    const pairs = await this.eligible({ serviceRequestId });
+    if (pairs.length === 0) return [];
+    const names = await this.transactions
+      .current()
+      .select({ id: users.id, name: users.name })
+      .from(users)
+      .where(inArray(users.id, pairs.map((p) => p.user_id)));
+    const nameOf = new Map(names.map((n) => [n.id, n.name]));
+    return pairs
+      .map((p) => ({ membershipId: p.membership_id, name: nameOf.get(p.user_id) ?? '', distanceKm: Math.round(p.meters / 100) / 10 }))
+      .sort((a, b) => a.distanceKm - b.distanceKm);
+  }
+
+  /** Recusas do pedido (do prestador, ou do cliente ao prestador), mais recentes primeiro. */
+  async declines(serviceRequestId: string): Promise<RequestDecline[]> {
+    const [row] = await this.transactions
+      .current()
+      .select({ id: serviceRequests.id })
+      .from(serviceRequests)
+      .where(eq(serviceRequests.id, serviceRequestId));
+    if (!row) throw new NotFoundException();
+    const rows = await this.transactions
+      .current()
+      .select({ providerName: users.name, by: serviceRequestDeclines.by, createdAt: serviceRequestDeclines.createdAt })
+      .from(serviceRequestDeclines)
+      .innerJoin(memberships, eq(memberships.id, serviceRequestDeclines.providerMembershipId))
+      .innerJoin(users, eq(users.id, memberships.userId))
+      .where(eq(serviceRequestDeclines.serviceRequestId, serviceRequestId))
+      .orderBy(desc(serviceRequestDeclines.createdAt));
+    return rows.map((r) => ({ ...r, createdAt: r.createdAt.toISOString() }));
   }
 
   /**
@@ -298,7 +457,7 @@ export class ServiceRequestsService {
 
   /** Pedido voltou para `open`: o cliente vê "procurando prestador" e os aptos são avisados de novo (broadcast). */
   private async afterReopen(request: ServiceRequest, extraUsers: string[]): Promise<void> {
-    await this.broadcast(request, extraUsers);
+    await this.dispatch(request, 'reopened', extraUsers);
     const clientId = await this.clientOf(request.id);
     this.announceStatus(request, [clientId, ...extraUsers]);
   }
@@ -375,6 +534,12 @@ export class ServiceRequestsService {
   /** Pedidos da empresa atual, mais recentes primeiro. */
   forCompany(): Promise<ServiceRequest[]> {
     return this.find(eq(serviceRequests.companyId, sql`app.current_company_id()`));
+  }
+
+  async one(serviceRequestId: string): Promise<ServiceRequest> {
+    const [request] = await this.find(eq(serviceRequests.id, serviceRequestId));
+    if (!request) throw new NotFoundException();
+    return request;
   }
 
   /** "Meus pedidos": os do cliente, em todas as empresas onde ainda tem vínculo ativo. */

@@ -78,6 +78,8 @@ export const openServiceRequestSchema = z.object({
   /** Distância aproximada (km, uma casa decimal) do endereço-base do prestador. */
   distanceKm: z.number(),
   clientFirstName: z.string(),
+  /** Atribuído a este prestador pelo admin (ele aceita ou recusa). */
+  assigned: z.boolean(),
   createdAt: z.iso.datetime(),
 });
 export type OpenServiceRequest = z.infer<typeof openServiceRequestSchema>;
@@ -114,3 +116,22 @@ export const providerServiceRequestSchema = z.object({
   createdAt: z.iso.datetime(),
 });
 export type ProviderServiceRequest = z.infer<typeof providerServiceRequestSchema>;
+
+export const assignServiceRequestSchema = z.object({ providerMembershipId: z.uuid() });
+export type AssignServiceRequest = z.infer<typeof assignServiceRequestSchema>;
+
+/** Prestador apto para um pedido, como o admin o vê ao atribuir. */
+export const eligibleProviderSchema = z.object({
+  membershipId: z.uuid(),
+  name: z.string(),
+  distanceKm: z.number(),
+});
+export type EligibleProvider = z.infer<typeof eligibleProviderSchema>;
+
+/** Recusa registrada num pedido: quem recusou (prestador) ou foi recusado (pelo cliente), e quando. */
+export const requestDeclineSchema = z.object({
+  providerName: z.string(),
+  by: z.enum(['provider', 'client']),
+  createdAt: z.iso.datetime(),
+});
+export type RequestDecline = z.infer<typeof requestDeclineSchema>;

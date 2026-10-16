@@ -25,6 +25,9 @@ export function useRealtime() {
     socket.on(socketEvents.notification, (payload: unknown) => {
       const notification = notificationEventSchema.safeParse(payload);
       queryClient.invalidateQueries({ queryKey: queryKeys.notifications });
+      if (notification.success) {
+        queryClient.invalidateQueries({ queryKey: queryKeys.openRequests(notification.data.companyId) });
+      }
       if (notification.success && notification.data.type !== 'new_request') {
         const { companyId } = notification.data;
         queryClient.invalidateQueries({ queryKey: queryKeys.myRequests });

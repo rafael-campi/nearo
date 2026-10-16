@@ -48,6 +48,7 @@ export default function OpenRequestsScreen() {
         ListEmptyComponent={<Text style={styles.empty}>Nenhum pedido aberto para você agora. Avisaremos quando chegar um.</Text>}
         renderItem={({ item }) => (
           <View style={styles.card}>
+            {item.assigned ? <Text style={styles.status}>Atribuído a você pela empresa</Text> : null}
             <Text style={styles.title}>{item.categoryName}</Text>
             <Text style={styles.body}>{item.description}</Text>
             <Text style={styles.meta}>

@@ -9,6 +9,8 @@ const nav = [
   { href: "/providers", label: "Prestadores" },
   { href: "/clients", label: "Clientes" },
   { href: "/admins", label: "Administradores" },
+  { href: "/notifications", label: "Atualizações" },
+  { href: "/settings", label: "Configurações" },
 ] as const;
 
 export default function PanelLayout({ children }: LayoutProps<"/">) {

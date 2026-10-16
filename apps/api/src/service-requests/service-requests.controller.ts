@@ -1,8 +1,12 @@
 import { Body, Controller, Get, HttpCode, Param, ParseUUIDPipe, Post } from '@nestjs/common';
 import {
+  assignServiceRequestSchema,
   createServiceRequestSchema,
   type AcceptServiceRequestResponse,
+  type AssignServiceRequest,
   type CategoryOption,
+  type EligibleProvider,
+  type RequestDecline,
   type ConfirmServiceRequestResponse,
   type OpenServiceRequest,
   type ProviderServiceRequest,
@@ -39,6 +43,34 @@ export class ServiceRequestsController {
   @Get('company/service-requests')
   forCompany(): Promise<ServiceRequest[]> {
     return this.requests.forCompany();
+  }
+
+  @CompanyRoles('admin')
+  @Get('company/service-requests/:id')
+  one(@Param('id', new ParseUUIDPipe({ errorHttpStatusCode: 404 })) id: string): Promise<ServiceRequest> {
+    return this.requests.one(id);
+  }
+
+  @CompanyRoles('admin')
+  @Post('company/service-requests/:id/assign')
+  @HttpCode(200)
+  assign(
+    @Param('id', new ParseUUIDPipe({ errorHttpStatusCode: 404 })) id: string,
+    @Body(new ZodPipe(assignServiceRequestSchema)) body: AssignServiceRequest,
+  ): Promise<AcceptServiceRequestResponse> {
+    return this.requests.assign(id, body.providerMembershipId);
+  }
+
+  @CompanyRoles('admin')
+  @Get('company/service-requests/:id/eligible-providers')
+  eligibleProviders(@Param('id', new ParseUUIDPipe({ errorHttpStatusCode: 404 })) id: string): Promise<EligibleProvider[]> {
+    return this.requests.eligibleProviders(id);
+  }
+
+  @CompanyRoles('admin')
+  @Get('company/service-requests/:id/declines')
+  declines(@Param('id', new ParseUUIDPipe({ errorHttpStatusCode: 404 })) id: string): Promise<RequestDecline[]> {
+    return this.requests.declines(id);
   }
 
   @CompanyRoles('provider')

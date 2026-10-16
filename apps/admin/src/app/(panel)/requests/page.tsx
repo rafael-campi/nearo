@@ -1,4 +1,5 @@
 import type { ServiceRequest } from "@despacho/shared";
+import Link from "next/link";
 import { redirect } from "next/navigation";
 import { Suspense } from "react";
 import { StatusBadge } from "@/components/status-badge";
@@ -40,6 +41,7 @@ async function RequestTable() {
             <th className="px-4 py-3 font-medium">Categoria</th>
             <th className="px-4 py-3 font-medium">Bairro</th>
             <th className="px-4 py-3 font-medium">Status</th>
+            <th className="px-4 py-3 font-medium">Prestador</th>
           </tr>
         </thead>
         <tbody className="divide-y divide-zinc-200 dark:divide-zinc-800">
@@ -55,8 +57,11 @@ async function RequestTable() {
               </td>
               <td className="px-4 py-3">{request.neighborhood ?? <span className="text-zinc-400">—</span>}</td>
               <td className="px-4 py-3">
-                <StatusBadge status={request.status} />
+                <Link href={`/requests/${request.id}`} aria-label={`Abrir pedido de ${request.clientName}`}>
+                  <StatusBadge status={request.status} />
+                </Link>
               </td>
+              <td className="px-4 py-3">{request.provider?.name ?? <span className="text-zinc-400">—</span>}</td>
             </tr>
           ))}
         </tbody>

@@ -1,5 +1,5 @@
 import { Inject, Injectable, NotFoundException } from '@nestjs/common';
-import type { Company, Invite, JoinCodeResponse } from '@despacho/shared';
+import type { AssignmentMode, Company, Invite, JoinCodeResponse } from '@despacho/shared';
 import { eq, sql } from 'drizzle-orm';
 import { newJoinCode } from '../auth/crypto.js';
 import { companies } from '../db/schema.js';
@@ -18,9 +18,20 @@ export class CompaniesService {
   async current(): Promise<Company> {
     const [company] = await this.transactions
       .current()
-      .select({ id: companies.id, name: companies.name })
+      .select({ id: companies.id, name: companies.name, assignmentMode: companies.assignmentMode })
       .from(companies)
       .where(eq(companies.id, sql`app.current_company_id()`));
+    if (!company) throw new NotFoundException();
+    return company;
+  }
+
+  async setAssignmentMode(assignmentMode: AssignmentMode): Promise<Company> {
+    const [company] = await this.transactions
+      .current()
+      .update(companies)
+      .set({ assignmentMode })
+      .where(eq(companies.id, sql`app.current_company_id()`))
+      .returning({ id: companies.id, name: companies.name, assignmentMode: companies.assignmentMode });
     if (!company) throw new NotFoundException();
     return company;
   }
@@ -41,7 +52,7 @@ export class CompaniesService {
    */
   async createWithAdminInvite(name: string, adminEmail: string): Promise<{ company: Company; invite: Invite }> {
     return this.db.transaction(async (tx) => {
-      const [company] = await tx.insert(companies).values({ name, joinCode: newJoinCode() }).returning({ id: companies.id, name: companies.name });
+      const [company] = await tx.insert(companies).values({ name, joinCode: newJoinCode() }).returning({ id: companies.id, name: companies.name, assignmentMode: companies.assignmentMode });
       const invite = await this.invites.create(tx, {
         companyId: company.id,
         companyName: company.name,

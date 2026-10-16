@@ -9,6 +9,10 @@ export const notificationTypeSchema = z.enum([
   'request_confirmed',
   /** Para o prestador: o cliente recusou (ou não deu para confirmar); o pedido voltou a ficar aberto. */
   'request_declined',
+  /** Para o admin: um pedido precisa ser atribuído (modo manual) ou voltou para aberto. */
+  'request_needs_assignment',
+  /** Para o prestador: o admin atribuiu um pedido a ele. */
+  'request_assigned',
 ]);
 export type NotificationType = z.infer<typeof notificationTypeSchema>;
 

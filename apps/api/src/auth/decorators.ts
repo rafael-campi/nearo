@@ -5,6 +5,7 @@ import type { TenantContext } from '../db/tenant-transactions.js';
 
 export const IS_PUBLIC = 'isPublic';
 export const COMPANY_ROLES = 'companyRoles';
+export const OWN_TRANSACTION = 'ownTransaction';
 
 /** Rota sem autenticação. */
 export const Public = () => SetMetadata(IS_PUBLIC, true);
@@ -18,3 +19,9 @@ export const Tenant = createParamDecorator((_: unknown, context: ExecutionContex
   if (!tenant) throw new Error('Rota sem tenant; use @Public() ou autentique');
   return tenant;
 });
+
+/**
+ * A rota abre a própria transação (`TenantTransactions.run`) em vez de rodar inteira numa: serve para
+ * quem precisa de uma chamada externa lenta antes, sem segurar uma conexão do banco esperando.
+ */
+export const OwnTransaction = () => SetMetadata(OWN_TRANSACTION, true);

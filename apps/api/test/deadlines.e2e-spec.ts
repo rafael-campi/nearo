@@ -129,6 +129,33 @@ describe('prazos do pedido', () => {
   });
 
   describe('aguardando o cliente', () => {
+    it('varredura: trata o prazo cujo job se perdeu, uma vez só, e não age antes da hora', async () => {
+      const joao = await ready('João', 'joao@email.com');
+      const request = await createRequest();
+      await accept(joao.token, request.id).expect(200);
+      // Simula o agendamento perdido (Redis fora do ar na hora): a fila fica sem os jobs.
+      for (const job of await pending()) await s.app.get(DeadlineScheduler).discard(job);
+
+      s.clock.advance(9 * MINUTE);
+      expect(await deadlines.sweep()).toBe(0);
+      s.clock.advance(MINUTE);
+      expect(await deadlines.runDue()).toBe(0);
+      expect(await statusOf(request.id)).toBe('awaiting_client');
+      expect(await deadlines.sweep()).toBe(1);
+      expect(await statusOf(request.id)).toBe('open');
+      expect(await typesOf(client)).toContain('request_expired');
+      expect(await deadlines.sweep()).toBe(0);
+    });
+
+    it('um job que dispara antes de vencer pelo relógio da API falha (para tentar de novo), em vez de se perder', async () => {
+      const joao = await ready('João', 'joao@email.com');
+      const request = await createRequest();
+      await accept(joao.token, request.id).expect(200);
+      const job = (await pending()).find((j) => j.kind === 'awaiting_client_timeout')!;
+      await expect(deadlines.handle(job)).rejects.toThrow('ainda não venceu');
+      expect(await statusOf(request.id)).toBe('awaiting_client');
+    });
+
     it('lembrete aos 5 min e, aos 10 min, volta para aberto sem contar como recusa; o prestador aceita de novo', async () => {
       const joao = await ready('João', 'joao@email.com');
       const request = await createRequest();

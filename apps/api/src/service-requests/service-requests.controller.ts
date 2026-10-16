@@ -21,7 +21,9 @@ import {
   type ServiceRequest,
 } from '@despacho/shared';
 import type { z } from 'zod';
-import { CompanyRoles, Tenant } from '../auth/decorators.js';
+import { ReverseGeocoder } from '../geocoding/reverse-geocoder.js';
+import { TenantTransactions } from '../db/tenant-transactions.js';
+import { CompanyRoles, OwnTransaction, Tenant } from '../auth/decorators.js';
 import { ZodPipe } from '../common/zod.pipe.js';
 import type { TenantContext } from '../db/tenant-transactions.js';
 import { ServiceRequestsService } from './service-requests.service.js';
@@ -34,6 +36,8 @@ export class ServiceRequestsController {
   constructor(
     private readonly requests: ServiceRequestsService,
     private readonly tracking: TrackingService,
+    private readonly geocoder: ReverseGeocoder,
+    private readonly transactions: TenantTransactions,
   ) {}
 
   @CompanyRoles('admin', 'client', 'provider')
@@ -42,13 +46,16 @@ export class ServiceRequestsController {
     return this.requests.categoryOptions();
   }
 
+  /** O bairro vem da geocodificação (serviço externo, lento): é buscado antes de abrir a transação. */
   @CompanyRoles('client')
+  @OwnTransaction()
   @Post('company/service-requests')
-  create(
+  async create(
     @Tenant() tenant: TenantContext,
     @Body(new ZodPipe(createServiceRequestSchema)) body: CreateServiceRequestInput,
   ): Promise<ServiceRequest> {
-    return this.requests.create(tenant.userId, body);
+    const neighborhood = await this.geocoder.neighborhood(body.location);
+    return this.transactions.run(tenant, () => this.requests.create(tenant.userId, body, neighborhood));
   }
 
   @CompanyRoles('admin')

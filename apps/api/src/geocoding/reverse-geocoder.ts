@@ -13,6 +13,9 @@ export class NoopGeocoder extends ReverseGeocoder {
   }
 }
 
+/** Quantas buscas podem esperar na fila (a ~1 s cada); as seguintes ficam sem bairro. */
+const MAX_WAITING = 3;
+
 /**
  * Nominatim (OpenStreetMap): sem conta, limite de 1 requisição por segundo e User-Agent identificável
  * (https://operations.osmfoundation.org/policies/nominatim/).
@@ -21,15 +24,23 @@ export class NoopGeocoder extends ReverseGeocoder {
 export class NominatimGeocoder extends ReverseGeocoder {
   private readonly logger = new Logger('NominatimGeocoder');
   private queue: Promise<unknown> = Promise.resolve();
+  private waiting = 0;
 
   async neighborhood({ latitude, longitude }: Coordinates): Promise<string | null> {
+    // Fila cheia: o pedido sai sem bairro em vez de esperar vários segundos (o bairro é só um enfeite).
+    if (this.waiting >= MAX_WAITING) return null;
+    this.waiting++;
     const run = this.queue.then(() => this.lookup(latitude, longitude));
     // Espaça as chamadas em 1 s, respeitando o limite do serviço.
     this.queue = run.then(
       () => new Promise((r) => setTimeout(r, 1000)),
       () => new Promise((r) => setTimeout(r, 1000)),
     );
-    return run;
+    try {
+      return await run;
+    } finally {
+      this.waiting--;
+    }
   }
 
   private async lookup(latitude: number, longitude: number): Promise<string | null> {

@@ -32,7 +32,6 @@ import {
   users,
 } from '../db/schema.js';
 import { DATABASE, TenantTransactions, type Database } from '../db/tenant-transactions.js';
-import { ReverseGeocoder } from '../geocoding/reverse-geocoder.js';
 import { ReviewsService } from '../reviews/reviews.service.js';
 import { PhotosService } from '../photos/photos.service.js';
 import { NotificationsService } from '../notifications/notifications.service.js';
@@ -54,7 +53,6 @@ export class ServiceRequestsService {
   constructor(
     @Inject(DATABASE) private readonly db: Database,
     private readonly transactions: TenantTransactions,
-    private readonly geocoder: ReverseGeocoder,
     private readonly clock: Clock,
     private readonly notifications: NotificationsService,
     private readonly realtime: RealtimeService,
@@ -74,7 +72,7 @@ export class ServiceRequestsService {
       .orderBy(asc(sql`lower(${categories.name})`));
   }
 
-  async create(clientId: string, body: CreateServiceRequestInput): Promise<ServiceRequest> {
+  async create(clientId: string, body: CreateServiceRequestInput, neighborhood: string | null): Promise<ServiceRequest> {
     const tx = this.transactions.current();
     const [category] = await tx
       .select({ id: categories.id })
@@ -91,7 +89,6 @@ export class ServiceRequestsService {
     }
 
     await this.photos.claim(clientId, body.photoKeys, 'request_photo', 'photoKeys');
-    const neighborhood = await this.geocoder.neighborhood(body.location);
     const now = this.clock.now();
     const [created] = await tx
       .insert(serviceRequests)

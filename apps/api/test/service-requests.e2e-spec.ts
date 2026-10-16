@@ -110,6 +110,8 @@ describe('cliente cria um pedido', () => {
     const inactive = await create({ categoryId: pintura }).expect(400);
     expect(inactive.body.issues[0].message).toBe('Categoria inválida');
     await create({ categoryId: '00000000-0000-0000-0000-000000000000' }).expect(400);
+    // Corpo inválido nem chega à geocodificação (serviço externo, com limite de uso).
+    s.geocoder.calls.length = 0;
     await create({ description: 'curto' }).expect(400);
     await create({ location: { latitude: 100, longitude: 0 } }).expect(400);
     expect(s.geocoder.calls).toEqual([]);

@@ -181,7 +181,9 @@ describe('GPS ao vivo e raio de aviso', () => {
       const queue = new Queue('maintenance', { connection: new Redis(testEnv.REDIS_URL, { maxRetriesPerRequest: null }) });
       try {
         const schedulers = await queue.getJobSchedulers();
-        expect(schedulers.map((j) => [j.key, j.pattern])).toEqual([['purge-positions', '0 3 * * *']]);
+        expect(schedulers.find((j) => j.key === 'purge-positions')?.pattern).toBe('0 3 * * *');
+        // A outra tarefa recorrente é a varredura de prazos vencidos, a cada minuto.
+        expect(schedulers.find((j) => j.key === 'sweep-deadlines')?.every).toBe(60_000);
       } finally {
         await queue.close();
       }

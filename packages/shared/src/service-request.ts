@@ -199,3 +199,11 @@ export const requestEventSchema = z.object({
   createdAt: z.iso.datetime(),
 });
 export type RequestEvent = z.infer<typeof requestEventSchema>;
+
+/** Páginas das listas de pedidos: os mais recentes primeiro; `before` leva aos mais antigos que essa data. */
+export const REQUESTS_PAGE_SIZE = 50;
+export const requestsPageQuerySchema = z.object({
+  limit: z.coerce.number().int().min(1).max(100).default(REQUESTS_PAGE_SIZE),
+  before: z.iso.datetime().optional(),
+});
+export type RequestsPageQuery = z.output<typeof requestsPageQuerySchema>;

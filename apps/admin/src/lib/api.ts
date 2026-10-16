@@ -2,6 +2,7 @@ import "server-only";
 import { COMPANY_HEADER } from "@despacho/shared";
 
 const API_URL = process.env.API_URL ?? "http://localhost:3000";
+const TIMEOUT_MS = 15_000;
 
 export interface ApiResult<T> {
   ok: boolean;
@@ -19,14 +20,28 @@ export async function api<T>(
   if (options.token) headers.authorization = `Bearer ${options.token}`;
   if (options.companyId) headers[COMPANY_HEADER] = options.companyId;
 
-  const res = await fetch(`${API_URL}${path}`, {
-    method: options.method ?? "GET",
-    headers,
-    body: options.body === undefined ? undefined : JSON.stringify(options.body),
-    cache: "no-store",
-  });
+  let res: Response;
+  try {
+    res = await fetch(`${API_URL}${path}`, {
+      method: options.method ?? "GET",
+      headers,
+      body: options.body === undefined ? undefined : JSON.stringify(options.body),
+      cache: "no-store",
+      // Sem prazo, uma API lenta deixaria a página pendurada.
+      signal: AbortSignal.timeout(TIMEOUT_MS),
+    });
+  } catch {
+    return { ok: false, status: 0, data: { message: "Sem conexão com o servidor" } as T };
+  }
   const text = await res.text();
-  return { ok: res.ok, status: res.status, data: (text ? JSON.parse(text) : undefined) as T };
+  // Resposta que não é JSON (ex.: página de erro de um proxy) vira erro comum, não exceção.
+  let data: unknown;
+  try {
+    data = text ? JSON.parse(text) : undefined;
+  } catch {
+    data = undefined;
+  }
+  return { ok: res.ok, status: res.status, data: data as T };
 }
 
 /** Primeira mensagem de erro de uma resposta da API, para mostrar no formulário. */

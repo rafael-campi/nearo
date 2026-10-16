@@ -106,7 +106,7 @@ export class ChatService {
           userId: recipient,
           title: message.senderName.split(' ')[0],
           body: message.body || '📷 Foto',
-          data: { type: 'new_message', serviceRequestId, companyId },
+          data: { type: 'new_message', serviceRequestId, companyId, role: who.role === 'client' ? 'provider' : 'client' },
         }),
       );
     }

@@ -13,6 +13,7 @@ import type {
   MembershipRole,
 } from '@despacho/shared';
 import { and, eq, isNull, sql } from 'drizzle-orm';
+import { isUniqueViolation } from '../common/db-errors.js';
 import { AuthService } from '../auth/auth.service.js';
 import { hashPassword, hashToken, newToken } from '../auth/crypto.js';
 import { SessionsService } from '../auth/sessions.service.js';
@@ -110,17 +111,24 @@ export class InvitesService {
 
   /** Conta existente confirma com a senha atual; quem não tem conta cria uma com nome e senha. */
   private async resolveUser(email: string, body: AcceptInviteRequest): Promise<string> {
-    const existingId = await this.findUserId(email);
-    if (existingId) {
-      const user = await this.auth.verifyCredentials(email, body.password);
-      if (!user) throw new UnauthorizedException('Senha incorreta');
-      return user.id;
-    }
+    if ((await this.findUserId(email)) !== null) return this.confirmExisting(email, body.password);
     if (!body.name) throw new BadRequestException({ message: 'Dados inválidos', issues: [{ path: 'name', message: 'Informe seu nome' }] });
-    const [user] = await this.db
-      .insert(users)
-      .values({ email, name: body.name, phone: body.phone, passwordHash: await hashPassword(body.password) })
-      .returning({ id: users.id });
+    try {
+      const [user] = await this.db
+        .insert(users)
+        .values({ email, name: body.name, phone: body.phone, passwordHash: await hashPassword(body.password) })
+        .returning({ id: users.id });
+      return user.id;
+    } catch (error) {
+      // Dois aceites ao mesmo tempo (ou um cadastro no meio): a conta já existe, então a senha a confirma.
+      if (isUniqueViolation(error)) return this.confirmExisting(email, body.password);
+      throw error;
+    }
+  }
+
+  private async confirmExisting(email: string, password: string): Promise<string> {
+    const user = await this.auth.verifyCredentials(email, password);
+    if (!user) throw new UnauthorizedException('Senha incorreta');
     return user.id;
   }
 

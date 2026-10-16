@@ -103,6 +103,32 @@ describe('cliente cria um pedido', () => {
     expect(res.body[0]).toMatchObject({ clientName: 'Rita', categoryName: 'Elétrica', status: 'open', neighborhood: 'Sé' });
   });
 
+  it('as listas vêm em páginas, dos mais recentes aos mais antigos', async () => {
+    const ids: string[] = [];
+    for (let i = 0; i < 5; i++) {
+      s.clock.advance(60_000);
+      ids.push((await create().expect(201)).body.id);
+    }
+    const newestFirst = [...ids].reverse();
+    const list = (path: string, headers: Record<string, string>, query: object) => http(s).get(path).set(headers).query(query);
+
+    for (const [path, headers] of [
+      ['/company/service-requests', asAdmin()],
+      ['/my/service-requests', asClient(admin.companyId)],
+    ] as const) {
+      const first = (await list(path, headers, { limit: 2 }).expect(200)).body as { id: string; createdAt: string }[];
+      expect(first.map((r) => r.id)).toEqual(newestFirst.slice(0, 2));
+      const second = (await list(path, headers, { limit: 2, before: first[1].createdAt }).expect(200)).body as { id: string; createdAt: string }[];
+      expect(second.map((r) => r.id)).toEqual(newestFirst.slice(2, 4));
+      const last = (await list(path, headers, { limit: 2, before: second[1].createdAt }).expect(200)).body;
+      expect(last.map((r: { id: string }) => r.id)).toEqual(newestFirst.slice(4));
+      expect((await list(path, headers, {}).expect(200)).body).toHaveLength(5);
+      await list(path, headers, { limit: 0 }).expect(400);
+      await list(path, headers, { limit: 101 }).expect(400);
+      await list(path, headers, { before: 'ontem' }).expect(400);
+    }
+  });
+
   it('valida categoria, descrição e coordenadas', async () => {
     const pintura = await categoryOf(s, admin, 'Pintura');
     await http(s).patch(`/company/categories/${pintura}`).set(asAdmin()).send({ active: false }).expect(200);

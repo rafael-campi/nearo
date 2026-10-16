@@ -1,10 +1,12 @@
-import { Body, Controller, Get, HttpCode, Param, ParseUUIDPipe, Post } from '@nestjs/common';
+import { Body, Controller, Get, HttpCode, Param, ParseUUIDPipe, Post, Query } from '@nestjs/common';
 import {
   advanceServiceRequestSchema,
   sendLocationSchema,
   assignServiceRequestSchema,
   createServiceRequestSchema,
   reasonRequestSchema,
+  requestsPageQuerySchema,
+  type RequestsPageQuery,
   type AcceptServiceRequestResponse,
   type AdvanceServiceRequest,
   type ProviderLocation,
@@ -60,8 +62,8 @@ export class ServiceRequestsController {
 
   @CompanyRoles('admin')
   @Get('company/service-requests')
-  forCompany(): Promise<ServiceRequest[]> {
-    return this.requests.forCompany();
+  forCompany(@Query(new ZodPipe(requestsPageQuerySchema)) page: RequestsPageQuery): Promise<ServiceRequest[]> {
+    return this.requests.forCompany(page);
   }
 
   @CompanyRoles('admin')
@@ -215,7 +217,10 @@ export class ServiceRequestsController {
   }
 
   @Get('my/service-requests')
-  mine(@Tenant() tenant: TenantContext): Promise<ServiceRequest[]> {
-    return this.requests.mine(tenant.userId);
+  mine(
+    @Tenant() tenant: TenantContext,
+    @Query(new ZodPipe(requestsPageQuerySchema)) page: RequestsPageQuery,
+  ): Promise<ServiceRequest[]> {
+    return this.requests.mine(tenant.userId, page);
   }
 }

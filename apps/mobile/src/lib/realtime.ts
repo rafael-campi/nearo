@@ -9,6 +9,7 @@ import {
 import { useQueryClient } from '@tanstack/react-query';
 import { useEffect } from 'react';
 import { io } from 'socket.io-client';
+import { appendChatMessage } from './chat-cache';
 import { API_URL } from './config';
 import { queryKeys } from './queries';
 import { useSession } from './session';
@@ -45,7 +46,7 @@ export function useRealtime() {
     });
     socket.on(socketEvents.messageNew, (payload: unknown) => {
       const message = messageSchema.safeParse(payload);
-      if (message.success) queryClient.invalidateQueries({ queryKey: queryKeys.chat(message.data.serviceRequestId) });
+      if (message.success) appendChatMessage(queryClient, message.data);
     });
     socket.on(socketEvents.serviceRequestLocation, (payload: unknown) => {
       const event = serviceRequestLocationEventSchema.safeParse(payload);
@@ -55,6 +56,9 @@ export function useRealtime() {
       const event = openRequestsChangedEventSchema.safeParse(payload);
       if (event.success) queryClient.invalidateQueries({ queryKey: queryKeys.openRequests(event.data.companyId) });
     });
+
+    // Voltou da queda: o que chegou enquanto estava fora é buscado de novo nas conversas abertas.
+    socket.io.on('reconnect', () => queryClient.invalidateQueries({ queryKey: ['chat'] }));
 
     return () => {
       socket.disconnect();

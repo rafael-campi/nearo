@@ -1,4 +1,4 @@
-import { GetObjectCommand, PutObjectCommand, S3Client } from '@aws-sdk/client-s3';
+import { DeleteObjectCommand, GetObjectCommand, PutObjectCommand, S3Client } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { Global, Inject, Injectable, Module, ServiceUnavailableException } from '@nestjs/common';
 import { APP_CONFIG, type AppConfig } from '../config.js';
@@ -14,6 +14,7 @@ export interface UploadTicket {
 export abstract class Storage {
   abstract presignUpload(key: string, contentLength: number): Promise<UploadTicket>;
   abstract presignRead(key: string): Promise<string>;
+  abstract delete(key: string): Promise<void>;
 }
 
 const UPLOAD_TTL_S = 10 * 60;
@@ -42,6 +43,11 @@ export class R2Storage extends Storage {
   presignRead(key: string): Promise<string> {
     const { client, bucket } = this.connection();
     return getSignedUrl(client, new GetObjectCommand({ Bucket: bucket, Key: key }), { expiresIn: READ_TTL_S });
+  }
+
+  async delete(key: string): Promise<void> {
+    const { client, bucket } = this.connection();
+    await client.send(new DeleteObjectCommand({ Bucket: bucket, Key: key }));
   }
 
   private connection(): { client: S3Client; bucket: string } {

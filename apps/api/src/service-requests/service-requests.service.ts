@@ -12,13 +12,14 @@ import {
   type CategoryOption,
   type EligibleProvider,
   type RequestDecline,
+  type RequestsPageQuery,
   type ConfirmServiceRequestResponse,
   type OpenServiceRequest,
   type ProviderServiceRequest,
   type RequestProvider,
   type ServiceRequest,
 } from '@despacho/shared';
-import { and, asc, desc, eq, gt, inArray, or, sql, type SQL } from 'drizzle-orm';
+import { and, asc, desc, eq, gt, inArray, lt, or, sql, type SQL } from 'drizzle-orm';
 import { Clock } from '../clock.js';
 import { DeadlineScheduler } from '../deadlines/deadline-scheduler.js';
 import {
@@ -516,7 +517,7 @@ export class ServiceRequestsService {
           // Concluídos ficam à vista por 7 dias (prazo da avaliação).
           and(
             eq(serviceRequests.status, 'completed'),
-            gt(serviceRequests.completedAt, new Date(this.clock.now().getTime() - 7 * 24 * 60 * 60_000)),
+            gt(serviceRequests.completedAt, new Date(this.clock.now().getTime() - REVIEW_WINDOW_DAYS * 24 * 60 * MINUTE)),
           ),
         ),
       ),
@@ -944,8 +945,8 @@ export class ServiceRequestsService {
   }
 
   /** Pedidos da empresa atual, mais recentes primeiro. */
-  forCompany(): Promise<ServiceRequest[]> {
-    return this.find(eq(serviceRequests.companyId, sql`app.current_company_id()`));
+  forCompany(page: RequestsPageQuery): Promise<ServiceRequest[]> {
+    return this.find(eq(serviceRequests.companyId, sql`app.current_company_id()`), page);
   }
 
   async one(serviceRequestId: string): Promise<ServiceRequest> {
@@ -955,7 +956,7 @@ export class ServiceRequestsService {
   }
 
   /** "Meus pedidos": os do cliente, em todas as empresas onde ainda tem vínculo ativo. */
-  mine(clientId: string): Promise<ServiceRequest[]> {
+  mine(clientId: string, page: RequestsPageQuery): Promise<ServiceRequest[]> {
     return this.find(
       and(
         eq(serviceRequests.clientId, clientId),
@@ -968,11 +969,12 @@ export class ServiceRequestsService {
         )`,
         eq(companies.active, true),
       ),
+      page,
     );
   }
 
-  private async find(where: SQL | undefined): Promise<ServiceRequest[]> {
-    const rows = await this.rows(where);
+  private async find(where: SQL | undefined, page?: RequestsPageQuery): Promise<ServiceRequest[]> {
+    const rows = await this.rows(page?.before ? and(where, lt(serviceRequests.createdAt, new Date(page.before))) : where, page?.limit);
     const photos = await this.photoUrls(rows.map((r) => r.id));
     return rows.map(({ location, createdAt, clientId: _clientId, clientPhone: _clientPhone, cancelledAt, cancelledByRole, cancelReason, ...row }) => ({
       ...row,
@@ -1001,8 +1003,8 @@ export class ServiceRequestsService {
     return result;
   }
 
-  private async rows(where: SQL | undefined) {
-    return this.transactions
+  private async rows(where: SQL | undefined, limit?: number) {
+    const query = this.transactions
       .current()
       .select({
         id: serviceRequests.id,
@@ -1031,6 +1033,7 @@ export class ServiceRequestsService {
       .innerJoin(users, eq(users.id, serviceRequests.clientId))
       .where(where)
       .orderBy(desc(serviceRequests.createdAt));
+    return limit === undefined ? query : query.limit(limit);
   }
 }
 

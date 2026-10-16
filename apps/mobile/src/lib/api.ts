@@ -1,6 +1,7 @@
 import { COMPANY_HEADER } from '@despacho/shared';
 import { ApiError } from './api-error';
 import { API_URL } from './config';
+import { fetchWithTimeout } from './http';
 import { useSession } from './session';
 
 function messageOf(body: unknown, fallback: string): string {
@@ -22,7 +23,7 @@ export async function api<T>(
 
   let res: Response;
   try {
-    res = await fetch(`${API_URL}${path}`, {
+    res = await fetchWithTimeout(`${API_URL}${path}`, {
       method: options.method ?? 'GET',
       headers,
       body: options.body === undefined ? undefined : JSON.stringify(options.body),
@@ -31,7 +32,13 @@ export async function api<T>(
     throw new ApiError(0, 'Sem conexão com o servidor');
   }
   const text = await res.text();
-  const body = text ? JSON.parse(text) : undefined;
+  // Resposta que não é JSON (ex.: página de erro de um proxy) vira erro comum, não exceção.
+  let body: unknown;
+  try {
+    body = text ? JSON.parse(text) : undefined;
+  } catch {
+    body = undefined;
+  }
   if (!res.ok) {
     if (res.status === 401 && token) await useSession.getState().signOut();
     throw new ApiError(res.status, messageOf(body, 'Algo deu errado. Tente de novo.'));

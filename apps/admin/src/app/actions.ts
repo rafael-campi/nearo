@@ -40,6 +40,7 @@ export async function login(_: FormState, formData: FormData): Promise<FormState
   if (!res.ok) return { message: errorMessage(res.data, "Não foi possível entrar"), values };
 
   const me = await api<MeResponse>("/me", { token: res.data.token });
+  if (!me.ok) return { message: errorMessage(me.data, "Não foi possível entrar"), values };
   // TODO: escolher a empresa quando a pessoa for admin de mais de uma.
   const adminOf = me.data.memberships.find((m) => m.role === "admin");
   if (!adminOf) {

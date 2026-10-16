@@ -19,5 +19,7 @@ export const pushDataSchema = z.object({
   type: notificationTypeSchema,
   serviceRequestId: z.string().optional(),
   companyId: z.string().optional(),
+  /** De que lado do pedido está quem recebe (mensagens de chat), para o app abrir a conversa. */
+  role: z.enum(['client', 'provider']).optional(),
 });
 export type PushData = z.infer<typeof pushDataSchema>;

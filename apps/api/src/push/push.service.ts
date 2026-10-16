@@ -61,6 +61,7 @@ export class PushService implements OnModuleInit, OnApplicationShutdown {
     const data: Record<string, string> = { type: job.data.type };
     if (job.data.serviceRequestId) data.serviceRequestId = job.data.serviceRequestId;
     if (job.data.companyId) data.companyId = job.data.companyId;
+    if (job.data.role) data.role = job.data.role;
     const { invalidTokens } = await this.sender.send(rows.map((r) => ({ token: r.token, title: job.title, body: job.body, data })));
     // Token que o FCM recusou não volta a ser usado.
     for (const token of invalidTokens) await this.db.execute(sql`select app.remove_device_tokens(array[${token}]::text[])`);

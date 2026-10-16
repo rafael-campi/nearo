@@ -169,7 +169,7 @@ describe('push via FCM', () => {
       await http(s).post(`/company/service-requests/${id}/messages`).set(at(client)).send({ clientMessageId: randomUUID(), body: 'Chegou?' }).expect(200);
       await drain();
       expect(s.push.sent).toEqual([
-        { token: tokenOf('joao'), title: 'Rita', body: 'Chegou?', data: { type: 'new_message', serviceRequestId: id, companyId: admin.companyId } },
+        { token: tokenOf('joao'), title: 'Rita', body: 'Chegou?', data: { type: 'new_message', serviceRequestId: id, companyId: admin.companyId, role: 'provider' } },
       ]);
 
       s.push.sent.length = 0;

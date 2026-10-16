@@ -1,4 +1,4 @@
-import type { ServiceRequest } from "@despacho/shared";
+import { REQUESTS_PAGE_SIZE, type ServiceRequest } from "@despacho/shared";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { Suspense } from "react";
@@ -13,25 +13,31 @@ const dateFormat = new Intl.DateTimeFormat("pt-BR", {
   timeZone: "America/Sao_Paulo",
 });
 
-export default function RequestsPage() {
+export default function RequestsPage({ searchParams }: { searchParams: Promise<{ before?: string }> }) {
   return (
     <section>
       <h1 className="mb-1 text-lg font-semibold">Pedidos</h1>
       <p className="mb-6 text-sm text-zinc-500">Todos os pedidos da empresa, mais recentes primeiro.</p>
       <Suspense fallback={<p className="text-sm text-zinc-500">Carregando pedidos…</p>}>
-        <RequestTable />
+        <RequestTable searchParams={searchParams} />
       </Suspense>
     </section>
   );
 }
 
-async function RequestTable() {
-  const res = await companyApi<ServiceRequest[]>("/company/service-requests");
+async function RequestTable({ searchParams }: { searchParams: Promise<{ before?: string }> }) {
+  const { before } = await searchParams;
+  const query = before ? `?before=${encodeURIComponent(before)}` : "";
+  const res = await companyApi<ServiceRequest[]>(`/company/service-requests${query}`);
+  // Data inválida na URL (400) ou sessão perdida: recomeça do início em vez de mandar para o login.
+  if (res.status === 400) redirect("/requests");
   if (!res.ok) redirect("/login");
   if (res.data.length === 0) {
-    return <p className="text-sm text-zinc-500">Nenhum pedido ainda.</p>;
+    return <p className="text-sm text-zinc-500">{before ? "Não há pedidos mais antigos." : "Nenhum pedido ainda."}</p>;
   }
+  const older = res.data.length === REQUESTS_PAGE_SIZE ? res.data[res.data.length - 1].createdAt : null;
   return (
+    <>
     <div className="overflow-x-auto rounded-xl border border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-950">
       <table className="w-full text-left text-sm">
         <thead className="border-b border-zinc-200 text-xs uppercase tracking-wide text-zinc-500 dark:border-zinc-800">
@@ -67,5 +73,10 @@ async function RequestTable() {
         </tbody>
       </table>
     </div>
+    <nav className="mt-4 flex gap-4 text-sm">
+      {before ? <Link href="/requests" className="underline">Voltar aos mais recentes</Link> : null}
+      {older ? <Link href={`/requests?before=${encodeURIComponent(older)}`} className="underline">Ver pedidos mais antigos</Link> : null}
+    </nav>
+    </>
   );
 }

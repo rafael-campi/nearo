@@ -57,15 +57,32 @@ export function usePushRegistration() {
         .then(() => SecureStore.setItemAsync(PUSH_TOKEN_KEY, data))
         .catch(() => undefined);
     });
-    // Tocar no push leva às atualizações (mensagens, à tela inicial).
-    const tap = Notifications.addNotificationResponseReceivedListener((response) => {
-      const type = response.notification.request.content.data?.type;
-      router.push(type === 'new_message' ? '/' : '/notifications');
-    });
     return () => {
       active = false;
       refresh.remove();
-      tap.remove();
     };
   }, [sessionToken]);
+
+  // Tocar no push abre a tela certa, também quando o app estava fechado (a última resposta chega ao abrir).
+  const lastResponse = Notifications.useLastNotificationResponse();
+  useEffect(() => {
+    if (!sessionToken || !lastResponse) return;
+    const id = lastResponse.notification.request.identifier;
+    if (id === handledResponse) return;
+    handledResponse = id;
+    openFromPush(lastResponse.notification.request.content.data);
+  }, [sessionToken, lastResponse]);
+}
+
+// Cada toque é tratado uma vez, mesmo que o hook entregue a mesma resposta de novo.
+let handledResponse: string | null = null;
+
+/** Mensagem nova abre a conversa; qualquer outro aviso abre a lista de atualizações. */
+function openFromPush(data: Record<string, unknown> | undefined): void {
+  const { type, serviceRequestId, companyId, role } = data ?? {};
+  if (type === 'new_message' && typeof serviceRequestId === 'string' && typeof companyId === 'string' && (role === 'client' || role === 'provider')) {
+    router.push({ pathname: '/chat/[id]', params: { id: serviceRequestId, companyId, as: role } });
+    return;
+  }
+  router.push('/notifications');
 }

@@ -8,7 +8,7 @@ import {
 } from '@despacho/shared';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { router, Stack, useLocalSearchParams } from 'expo-router';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { LocationPicker } from '@/components/location-picker';
 import { PhotoStrip } from '@/components/photo-strip';
@@ -32,6 +32,8 @@ export default function NewRequestScreen() {
   const [complement, setComplement] = useState('');
   const [photos, setPhotos] = useState<Photo[]>([]);
   const [uploading, setUploading] = useState(false);
+  // Fotos já enviadas ao storage: se o pedido falhar e a pessoa tentar de novo, não sobem outra vez.
+  const uploadedKeys = useRef(new Map<string, string>());
   const [locating, setLocating] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -71,7 +73,15 @@ export default function NewRequestScreen() {
     try {
       setUploading(true);
       // As fotos já foram redimensionadas ao escolher; vão direto ao storage antes de criar o pedido.
-      photoKeys = await Promise.all(photos.map((photo) => uploadPhoto(photo, 'request_photo', companyId)));
+      photoKeys = await Promise.all(
+        photos.map(async (photo) => {
+          const known = uploadedKeys.current.get(photo.uri);
+          if (known) return known;
+          const key = await uploadPhoto(photo, 'request_photo', companyId);
+          uploadedKeys.current.set(photo.uri, key);
+          return key;
+        }),
+      );
     } catch (e) {
       return setError((e as Error).message);
     } finally {

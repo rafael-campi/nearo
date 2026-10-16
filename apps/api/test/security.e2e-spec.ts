@@ -102,7 +102,6 @@ describe('sockets e sessões revogadas', () => {
   });
   afterAll(async () => {
     await s.close();
-    await ownerPool.end();
     redis.disconnect();
   });
 
@@ -152,5 +151,34 @@ describe('sockets e sessões revogadas', () => {
     s.app.get(RealtimeService).toServiceRequest(requestId, 'probe', {});
     await wait(250);
     expect(heard).toEqual({ provider: 0, client: 1 });
+  });
+});
+
+describe('aceite de convites simultâneos', () => {
+  let s: Scenario;
+  beforeAll(async () => {
+    s = await createScenario();
+  });
+  beforeEach(async () => {
+    await resetState();
+    s.mailer.sent.length = 0;
+  });
+  afterAll(async () => {
+    await s.close();
+    await ownerPool.end();
+  });
+
+  it('a mesma pessoa convidada por duas empresas e aceitando ao mesmo tempo não dá erro 500', async () => {
+    const a = await companyWithAdmin(s, 'Elétrica Silva', 'ana@silva.com');
+    const b = await companyWithAdmin(s, 'Hidráulica Souza', 'caio@souza.com');
+    for (const admin of [a, b]) {
+      await http(s).post('/company/invites').set(asUser(admin.token, admin.companyId)).send({ email: 'joao@email.com', role: 'provider' }).expect(201);
+    }
+    const tokens = s.mailer.sent.filter((m) => m.to === 'joao@email.com').map((m) => /invites\/([\w-]+)/.exec(m.text)![1]);
+    expect(tokens).toHaveLength(2);
+    const results = await Promise.all(
+      tokens.map((token) => http(s).post(`/invites/${token}/accept`).send({ name: 'João Lima', password: 'senha-prestador' })),
+    );
+    expect(results.map((r) => r.status)).toEqual([200, 200]);
   });
 });

@@ -7,6 +7,7 @@ import { Stack, useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
 import { ActivityIndicator, KeyboardAvoidingView, Platform, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { colors, ErrorText } from '@/components/ui';
+import { appendChatMessage } from '@/lib/chat-cache';
 import { pickPhoto, uploadPhoto, type Photo } from '@/lib/photos';
 import { api } from '@/lib/api';
 import { queryKeys } from '@/lib/queries';
@@ -27,11 +28,11 @@ const time = new Intl.DateTimeFormat('pt-BR', { hour: '2-digit', minute: '2-digi
 
 /** Conversa do pedido. `as` diz de que lado a pessoa está; `status` o estado do pedido ao abrir. */
 export default function ChatScreen() {
-  const { id, companyId, as, status } = useLocalSearchParams<{ id: string; companyId: string; as: 'client' | 'provider'; status: string }>();
+  const { id, companyId, as, status } = useLocalSearchParams<{ id: string; companyId: string; as: 'client' | 'provider'; status?: string }>();
   const queryClient = useQueryClient();
   const [text, setText] = useState('');
   const [pending, setPending] = useState<Pending[]>([]);
-  const [closed, setClosed] = useState(!(chatWritableStatuses as readonly string[]).includes(status));
+  const [closed, setClosed] = useState(status !== undefined && !(chatWritableStatuses as readonly string[]).includes(status));
 
   const messages = useInfiniteQuery({
     queryKey: queryKeys.chat(id),
@@ -53,8 +54,8 @@ export default function ChatScreen() {
         companyId,
       });
     },
-    onSuccess: async (_, item) => {
-      await queryClient.invalidateQueries({ queryKey: queryKeys.chat(id) });
+    onSuccess: (message, item) => {
+      appendChatMessage(queryClient, message);
       setPending((list) => list.filter((p) => p.clientMessageId !== item.clientMessageId));
     },
     onError: (error, item) => {

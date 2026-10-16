@@ -8,6 +8,8 @@ const configSchema = z.object({
   ADMIN_URL: z.url().default('http://localhost:3001'),
   /** Geocodificação reversa (bairro do pedido): `nominatim` (OpenStreetMap) ou `none`. */
   GEOCODER: z.enum(['nominatim', 'none']).default('nominatim'),
+  /** Worker dos prazos do pedido (BullMQ). Os testes o desligam e varrem os prazos vencidos à mão. */
+  WORKERS: z.enum(['on', 'off']).default('on'),
   /** Origens liberadas por CORS, separadas por vírgula (ex.: Expo web em dev). O app nativo não precisa. */
   CORS_ORIGINS: z
     .string()

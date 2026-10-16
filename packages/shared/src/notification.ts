@@ -13,6 +13,12 @@ export const notificationTypeSchema = z.enum([
   'request_needs_assignment',
   /** Para o prestador: o admin atribuiu um pedido a ele. */
   'request_assigned',
+  /** Para o admin: 15 minutos sem prestador aceitar (broadcast). */
+  'request_unclaimed',
+  /** Para o cliente: lembrete de que um prestador aguarda a confirmação. */
+  'request_reminder',
+  /** Para o cliente e o prestador: o cliente não respondeu a tempo e o pedido voltou para aberto. */
+  'request_expired',
 ]);
 export type NotificationType = z.infer<typeof notificationTypeSchema>;
 

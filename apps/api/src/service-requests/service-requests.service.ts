@@ -14,6 +14,7 @@ import {
 } from '@despacho/shared';
 import { and, asc, desc, eq, inArray, sql, type SQL } from 'drizzle-orm';
 import { Clock } from '../clock.js';
+import { DeadlineScheduler } from '../deadlines/deadline-scheduler.js';
 import { categories, companies, memberships, serviceRequestDeclines, serviceRequests, users } from '../db/schema.js';
 import { DATABASE, TenantTransactions, type Database } from '../db/tenant-transactions.js';
 import { ReverseGeocoder } from '../geocoding/reverse-geocoder.js';
@@ -21,6 +22,12 @@ import { NotificationsService } from '../notifications/notifications.service.js'
 import { RealtimeService } from '../realtime/realtime.service.js';
 import { eligiblePairs, type EligiblePair } from './eligibility.js';
 import type { CreateServiceRequestInput } from './service-requests.controller.js';
+
+const MINUTE = 60_000;
+/** Prazos do pedido (docs/v1-scope.md, "Regras do pedido"). */
+export const NO_ACCEPTANCE_MS = 15 * MINUTE;
+export const CLIENT_REMINDER_MS = 5 * MINUTE;
+export const CLIENT_TIMEOUT_MS = 10 * MINUTE;
 
 @Injectable()
 export class ServiceRequestsService {
@@ -31,6 +38,7 @@ export class ServiceRequestsService {
     private readonly clock: Clock,
     private readonly notifications: NotificationsService,
     private readonly realtime: RealtimeService,
+    private readonly scheduler: DeadlineScheduler,
   ) {}
 
   /** Categorias ativas da empresa, para quem pede ou atende. */
@@ -91,26 +99,23 @@ export class ServiceRequestsService {
       .from(companies)
       .where(eq(companies.id, sql`app.current_company_id()`));
     const broadcast = company.mode === 'broadcast';
+    const openedAt = this.clock.now();
     await this.transactions
       .current()
       .update(serviceRequests)
-      .set({ broadcast })
+      .set({ broadcast, openedAt })
       .where(eq(serviceRequests.id, request.id));
-    if (broadcast) return this.broadcast(request, alsoRefresh);
+    if (broadcast) {
+      this.deadline('no_acceptance', request, openedAt, NO_ACCEPTANCE_MS);
+      return this.broadcast(request, alsoRefresh);
+    }
     await this.notifyAdmins(request, reason);
     this.announceOpenRequestsChanged(alsoRefresh, request.companyId);
   }
 
   private async notifyAdmins(request: ServiceRequest, reason: 'created' | 'reopened'): Promise<void> {
-    const admins = await this.transactions
-      .current()
-      .select({ userId: memberships.userId })
-      .from(memberships)
-      .where(
-        and(eq(memberships.companyId, sql`app.current_company_id()`), eq(memberships.role, 'admin'), eq(memberships.active, true)),
-      );
     await this.notifications.notify({
-      userIds: admins.map((a) => a.userId),
+      userIds: await this.activeAdmins(),
       type: 'request_needs_assignment',
       title: reason === 'created' ? `Pedido novo para atribuir: ${request.categoryName}` : `Pedido voltou para aberto: ${request.categoryName}`,
       body: [request.neighborhood, request.clientName].filter(Boolean).join(' · '),
@@ -210,6 +215,8 @@ export class ServiceRequestsService {
       body: `${request.categoryName} · confirme ou recuse o prestador`,
       serviceRequestId,
     });
+    this.deadline('awaiting_client_reminder', request, now, CLIENT_REMINDER_MS);
+    this.deadline('awaiting_client_timeout', request, now, CLIENT_TIMEOUT_MS);
     const event = { id: serviceRequestId, companyId: request.companyId, status: request.status };
     this.transactions.afterCommit(() => {
       this.realtime.toUser(locked.clientId, socketEvents.serviceRequestUpdated, event);
@@ -477,6 +484,111 @@ export class ServiceRequestsService {
       this.realtime.toUsers(userIds, socketEvents.serviceRequestUpdated, event);
       this.realtime.toServiceRequest(request.id, socketEvents.serviceRequestUpdated, event);
     });
+  }
+
+  /** Agenda um prazo para depois do commit; o job relê o pedido ao rodar e só age se o estado ainda for o mesmo. */
+  private deadline(
+    kind: 'no_acceptance' | 'awaiting_client_reminder' | 'awaiting_client_timeout',
+    request: ServiceRequest,
+    stamp: Date,
+    afterMs: number,
+  ): void {
+    const runAt = new Date(stamp.getTime() + afterMs);
+    this.transactions.afterCommit(() =>
+      this.scheduler.schedule(
+        { kind, serviceRequestId: request.id, companyId: request.companyId, stamp: stamp.toISOString(), runAt: runAt.toISOString() },
+        runAt.getTime() - this.clock.now().getTime(),
+      ),
+    );
+  }
+
+  /** Pedido travado, para o prazo conferir se ainda está no estado que o criou. */
+  private async lockForDeadline(serviceRequestId: string) {
+    const [row] = await this.transactions
+      .current()
+      .select({
+        status: serviceRequests.status,
+        broadcast: serviceRequests.broadcast,
+        openedAt: serviceRequests.openedAt,
+        acceptedAt: serviceRequests.acceptedAt,
+        clientId: serviceRequests.clientId,
+        providerMembershipId: serviceRequests.providerMembershipId,
+      })
+      .from(serviceRequests)
+      .where(eq(serviceRequests.id, serviceRequestId))
+      .for('update');
+    return row;
+  }
+
+  /** 15 min em broadcast sem aceite: o admin é avisado. O pedido continua aberto (sem cancelamento automático). */
+  async notifyUnclaimed(serviceRequestId: string, openedAt: Date): Promise<void> {
+    const row = await this.lockForDeadline(serviceRequestId);
+    if (!row || row.status !== 'open' || !row.broadcast || row.openedAt?.getTime() !== openedAt.getTime()) return;
+    const [request] = await this.find(eq(serviceRequests.id, serviceRequestId));
+    const admins = await this.activeAdmins();
+    await this.notifications.notify({
+      userIds: admins,
+      type: 'request_unclaimed',
+      title: `Pedido sem aceite há 15 minutos: ${request.categoryName}`,
+      body: [request.neighborhood, request.clientName].filter(Boolean).join(' · '),
+      serviceRequestId,
+    });
+  }
+
+  /** 5 min esperando o cliente: lembrete de que o prestador aguarda. */
+  async remindClient(serviceRequestId: string, acceptedAt: Date): Promise<void> {
+    const row = await this.lockForDeadline(serviceRequestId);
+    if (!row || row.status !== 'awaiting_client' || row.acceptedAt?.getTime() !== acceptedAt.getTime()) return;
+    const [request] = await this.find(eq(serviceRequests.id, serviceRequestId));
+    await this.notifications.notify({
+      userIds: [row.clientId],
+      type: 'request_reminder',
+      title: `${request.provider?.name.split(' ')[0] ?? 'O prestador'} está esperando você`,
+      body: `${request.categoryName} · confirme ou recuse o prestador`,
+      serviceRequestId,
+    });
+  }
+
+  /**
+   * 10 min esperando o cliente: o pedido volta para `open` sem contar como recusa (o prestador pode
+   * aceitar de novo) e segue o modo da empresa.
+   */
+  async expireAwaitingClient(serviceRequestId: string, acceptedAt: Date): Promise<void> {
+    const row = await this.lockForDeadline(serviceRequestId);
+    if (!row || row.status !== 'awaiting_client' || !row.providerMembershipId || row.acceptedAt?.getTime() !== acceptedAt.getTime()) return;
+    const [provider] = await this.transactions
+      .current()
+      .select({ userId: memberships.userId })
+      .from(memberships)
+      .where(eq(memberships.id, row.providerMembershipId));
+    await this.reopen(serviceRequestId, this.clock.now());
+    const [request] = await this.find(eq(serviceRequests.id, serviceRequestId));
+    await this.notifications.notify({
+      userIds: [row.clientId],
+      type: 'request_expired',
+      title: 'Você não respondeu a tempo',
+      body: `${request.categoryName} · o prestador foi liberado e o pedido voltou a ficar aberto`,
+      serviceRequestId,
+    });
+    await this.notifications.notify({
+      userIds: [provider.userId],
+      type: 'request_expired',
+      title: 'O cliente não respondeu a tempo',
+      body: `${request.categoryName} · o pedido voltou a ficar aberto`,
+      serviceRequestId,
+    });
+    await this.afterReopen(request, [provider.userId]);
+  }
+
+  private async activeAdmins(): Promise<string[]> {
+    const admins = await this.transactions
+      .current()
+      .select({ userId: memberships.userId })
+      .from(memberships)
+      .where(
+        and(eq(memberships.companyId, sql`app.current_company_id()`), eq(memberships.role, 'admin'), eq(memberships.active, true)),
+      );
+    return admins.map((a) => a.userId);
   }
 
   /** Quem pode acompanhar o pedido pelo socket: o cliente, o prestador do pedido ou um admin da empresa. */

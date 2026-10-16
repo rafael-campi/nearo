@@ -8,6 +8,8 @@ import { ClockModule } from './clock.js';
 import { CompaniesService } from './companies/companies.service.js';
 import { CompanyController } from './companies/company.controller.js';
 import { APP_CONFIG, loadConfig } from './config.js';
+import { BullDeadlineScheduler, DeadlineScheduler } from './deadlines/deadline-scheduler.js';
+import { DeadlinesService } from './deadlines/deadlines.service.js';
 import { DatabaseModule } from './db/database.module.js';
 import { GeocodingModule } from './geocoding/reverse-geocoder.js';
 import { HealthController } from './health/health.controller.js';
@@ -34,6 +36,6 @@ class ConfigModule {}
 @Module({
   imports: [ConfigModule, ClockModule, DatabaseModule, RedisModule, MailModule, AuthModule, GeocodingModule],
   controllers: [HealthController, CompanyController, InvitesController, CategoriesController, ClientsController, ProvidersController, ServiceRequestsController, NotificationsController],
-  providers: [CompaniesService, InvitesService, CategoriesService, ClientsService, ProvidersService, ServiceRequestsService, NotificationsService, RealtimeService, RealtimeGateway],
+  providers: [CompaniesService, InvitesService, CategoriesService, ClientsService, ProvidersService, ServiceRequestsService, NotificationsService, RealtimeService, RealtimeGateway, { provide: DeadlineScheduler, useClass: BullDeadlineScheduler }, DeadlinesService],
 })
 export class AppModule {}

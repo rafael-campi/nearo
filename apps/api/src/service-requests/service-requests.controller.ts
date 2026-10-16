@@ -1,8 +1,10 @@
 import { Body, Controller, Get, HttpCode, Param, ParseUUIDPipe, Post } from '@nestjs/common';
 import {
+  advanceServiceRequestSchema,
   assignServiceRequestSchema,
   createServiceRequestSchema,
   type AcceptServiceRequestResponse,
+  type AdvanceServiceRequest,
   type AssignServiceRequest,
   type CategoryOption,
   type EligibleProvider,
@@ -103,6 +105,17 @@ export class ServiceRequestsController {
   @Get('company/provider-requests')
   forProvider(@Tenant() tenant: TenantContext): Promise<ProviderServiceRequest[]> {
     return this.requests.forProvider(tenant.userId);
+  }
+
+  @CompanyRoles('provider')
+  @Post('company/service-requests/:id/status')
+  @HttpCode(200)
+  advance(
+    @Tenant() tenant: TenantContext,
+    @Param('id', new ParseUUIDPipe({ errorHttpStatusCode: 404 })) id: string,
+    @Body(new ZodPipe(advanceServiceRequestSchema)) body: AdvanceServiceRequest,
+  ): Promise<AcceptServiceRequestResponse> {
+    return this.requests.advance(tenant.userId, id, body.status);
   }
 
   @CompanyRoles('client')

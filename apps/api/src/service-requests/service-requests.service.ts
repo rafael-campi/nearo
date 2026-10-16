@@ -1,6 +1,8 @@
 import { BadRequestException, ConflictException, Inject, Injectable, NotFoundException } from '@nestjs/common';
 import {
   fullViewStatuses,
+  nextServiceStep,
+  type ServiceStep,
   socketEvents,
   type AcceptServiceRequestResponse,
   type CategoryOption,
@@ -12,7 +14,7 @@ import {
   type RequestProvider,
   type ServiceRequest,
 } from '@despacho/shared';
-import { and, asc, desc, eq, inArray, sql, type SQL } from 'drizzle-orm';
+import { and, asc, desc, eq, gt, inArray, or, sql, type SQL } from 'drizzle-orm';
 import { Clock } from '../clock.js';
 import { DeadlineScheduler } from '../deadlines/deadline-scheduler.js';
 import { categories, companies, memberships, serviceRequestDeclines, serviceRequests, users } from '../db/schema.js';
@@ -405,11 +407,68 @@ export class ServiceRequestsService {
     await this.afterReopen(request, [locked.providerUserId]);
   }
 
+  /**
+   * O prestador do pedido avança o atendimento um passo por vez e o cliente é avisado.
+   * A checagem de "um pedido ativo por prestador" está na confirmação e na aptidão (app.provider_has_active_request).
+   */
+  async advance(userId: string, serviceRequestId: string, to: ServiceStep): Promise<AcceptServiceRequestResponse> {
+    const membershipId = await this.ownProviderMembership(userId);
+    const tx = this.transactions.current();
+    const [locked] = await tx
+      .select({
+        status: serviceRequests.status,
+        clientId: serviceRequests.clientId,
+        providerMembershipId: serviceRequests.providerMembershipId,
+      })
+      .from(serviceRequests)
+      .where(eq(serviceRequests.id, serviceRequestId))
+      .for('update');
+    if (!locked || locked.providerMembershipId !== membershipId) throw new NotFoundException();
+    if (nextServiceStep[locked.status]?.to !== to) {
+      throw new ConflictException('Este passo não vem agora no atendimento');
+    }
+
+    const now = this.clock.now();
+    const stamp = { en_route: 'enRouteAt', arrived: 'arrivedAt', in_progress: 'startedAt', completed: 'completedAt' } as const;
+    await tx
+      .update(serviceRequests)
+      .set({ status: to, [stamp[to]]: now, updatedAt: now })
+      .where(eq(serviceRequests.id, serviceRequestId));
+
+    const [request] = await this.find(eq(serviceRequests.id, serviceRequestId));
+    const name = (request.provider?.name ?? 'O prestador').split(' ')[0];
+    const messages: Record<ServiceStep, string> = {
+      en_route: `${name} está a caminho`,
+      arrived: `${name} chegou`,
+      in_progress: `${name} iniciou o serviço`,
+      completed: 'Serviço concluído',
+    };
+    await this.notifications.notify({
+      userIds: [locked.clientId],
+      type: 'request_status',
+      title: messages[to],
+      body: request.categoryName,
+      serviceRequestId,
+    });
+    this.announceStatus(request, [locked.clientId, userId]);
+    return { id: serviceRequestId, status: request.status };
+  }
+
   /** Pedidos do prestador nesta empresa: visão reduzida até a confirmação; depois, endereço completo e telefone. */
   async forProvider(userId: string): Promise<ProviderServiceRequest[]> {
     const membershipId = await this.ownProviderMembership(userId);
     const rows = await this.rows(
-      and(eq(serviceRequests.providerMembershipId, membershipId), inArray(serviceRequests.status, ['awaiting_client', ...fullViewStatuses])),
+      and(
+        eq(serviceRequests.providerMembershipId, membershipId),
+        or(
+          inArray(serviceRequests.status, ['awaiting_client', 'confirmed', 'en_route', 'arrived', 'in_progress']),
+          // Concluídos ficam à vista por 7 dias (prazo da avaliação).
+          and(
+            eq(serviceRequests.status, 'completed'),
+            gt(serviceRequests.completedAt, new Date(this.clock.now().getTime() - 7 * 24 * 60 * 60_000)),
+          ),
+        ),
+      ),
     );
     return rows.map((r) => ({
       id: r.id,

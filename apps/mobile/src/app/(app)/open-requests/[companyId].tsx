@@ -1,4 +1,4 @@
-import { serviceRequestStatusLabel, type OpenServiceRequest, type ProviderServiceRequest } from '@despacho/shared';
+import { nextServiceStep, serviceRequestStatusLabel, type OpenServiceRequest, type ProviderServiceRequest } from '@despacho/shared';
 import { FlashList } from '@shopify/flash-list';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Stack, useLocalSearchParams } from 'expo-router';
@@ -44,7 +44,7 @@ export default function OpenRequestsScreen() {
         data={requests.data}
         keyExtractor={(item) => item.id}
         extraData={busy}
-        ListHeaderComponent={<MyRequests requests={mine.data ?? []} />}
+        ListHeaderComponent={<MyRequests companyId={companyId} requests={mine.data ?? []} />}
         ListEmptyComponent={<Text style={styles.empty}>Nenhum pedido aberto para você agora. Avisaremos quando chegar um.</Text>}
         renderItem={({ item }) => (
           <View style={styles.card}>
@@ -83,13 +83,20 @@ export default function OpenRequestsScreen() {
 }
 
 /** Pedidos que o prestador aceitou: endereço completo e telefone só depois da confirmação do cliente. */
-function MyRequests({ requests }: { requests: ProviderServiceRequest[] }) {
+function MyRequests({ companyId, requests }: { companyId: string; requests: ProviderServiceRequest[] }) {
+  const queryClient = useQueryClient();
+  const advance = useMutation({
+    mutationFn: ({ id, status }: { id: string; status: string }) =>
+      api(`/company/service-requests/${id}/status`, { method: 'POST', body: { status }, companyId }),
+    onSettled: () => queryClient.invalidateQueries({ queryKey: queryKeys.providerRequests(companyId) }),
+  });
   if (requests.length === 0) return null;
   return (
     <View>
       <Text style={styles.section} accessibilityRole="header">
         Seus pedidos
       </Text>
+      {advance.error ? <ErrorText>{advance.error.message}</ErrorText> : null}
       {requests.map((r) => (
         <View key={r.id} style={styles.card} accessibilityLabel={`Pedido de ${r.categoryName}: ${serviceRequestStatusLabel[r.status]}`}>
           <Text style={styles.title}>{r.categoryName}</Text>
@@ -111,6 +118,16 @@ function MyRequests({ requests }: { requests: ProviderServiceRequest[] }) {
           <Text style={styles.status}>
             {r.status === 'awaiting_client' ? 'Aguardando o cliente confirmar' : serviceRequestStatusLabel[r.status]}
           </Text>
+          {nextServiceStep[r.status] ? (
+            <Pressable
+              accessibilityRole="button"
+              disabled={advance.isPending}
+              onPress={() => advance.mutate({ id: r.id, status: nextServiceStep[r.status]!.to })}
+              style={({ pressed }) => [styles.button, styles.primary, { marginTop: 8 }, (pressed || advance.isPending) && { opacity: 0.6 }]}
+            >
+              <Text style={styles.primaryText}>{nextServiceStep[r.status]!.label}</Text>
+            </Pressable>
+          ) : null}
         </View>
       ))}
       <Text style={styles.section} accessibilityRole="header">

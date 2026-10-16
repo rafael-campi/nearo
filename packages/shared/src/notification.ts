@@ -19,6 +19,8 @@ export const notificationTypeSchema = z.enum([
   'request_reminder',
   /** Para o cliente e o prestador: o cliente não respondeu a tempo e o pedido voltou para aberto. */
   'request_expired',
+  /** Para o cliente: o prestador avançou o atendimento (a caminho, chegou, em execução, concluído). */
+  'request_status',
 ]);
 export type NotificationType = z.infer<typeof notificationTypeSchema>;
 

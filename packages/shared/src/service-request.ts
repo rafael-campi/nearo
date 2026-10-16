@@ -135,3 +135,18 @@ export const requestDeclineSchema = z.object({
   createdAt: z.iso.datetime(),
 });
 export type RequestDecline = z.infer<typeof requestDeclineSchema>;
+
+/** O prestador avança o atendimento um passo por vez: confirmado → a caminho → chegou → em execução → concluído. */
+export const serviceStepSchema = z.enum(['en_route', 'arrived', 'in_progress', 'completed']);
+export type ServiceStep = z.infer<typeof serviceStepSchema>;
+
+export const advanceServiceRequestSchema = z.object({ status: serviceStepSchema });
+export type AdvanceServiceRequest = z.infer<typeof advanceServiceRequestSchema>;
+
+/** Próximo passo a partir de cada status, com o texto do botão do prestador. */
+export const nextServiceStep: Partial<Record<ServiceRequestStatus, { to: ServiceStep; label: string }>> = {
+  confirmed: { to: 'en_route', label: 'Estou a caminho' },
+  en_route: { to: 'arrived', label: 'Cheguei' },
+  arrived: { to: 'in_progress', label: 'Iniciar serviço' },
+  in_progress: { to: 'completed', label: 'Concluir serviço' },
+};

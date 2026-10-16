@@ -167,6 +167,10 @@ export const serviceRequests = pgTable('service_requests', {
   providerMembershipId: uuid('provider_membership_id').references(() => memberships.id),
   acceptedAt: timestamp('accepted_at', { withTimezone: true }),
   confirmedAt: timestamp('confirmed_at', { withTimezone: true }),
+  enRouteAt: timestamp('en_route_at', { withTimezone: true }),
+  arrivedAt: timestamp('arrived_at', { withTimezone: true }),
+  startedAt: timestamp('started_at', { withTimezone: true }),
+  completedAt: timestamp('completed_at', { withTimezone: true }),
   /** Os prestadores aptos veem e aceitam o pedido aberto (modo da empresa quando ele foi criado ou reaberto). */
   broadcast: boolean('broadcast').notNull().default(true),
   /** Desde quando o pedido está aberto (criação ou última volta para aberto); marca o prazo de 15 min. */
@@ -196,7 +200,7 @@ export const serviceRequestDeclines = pgTable(
   (t) => [primaryKey({ columns: [t.serviceRequestId, t.providerMembershipId] })],
 );
 
-export const notificationType = pgEnum('notification_type', ['new_request', 'request_accepted', 'request_confirmed', 'request_declined', 'request_needs_assignment', 'request_assigned', 'request_unclaimed', 'request_reminder', 'request_expired']);
+export const notificationType = pgEnum('notification_type', ['new_request', 'request_accepted', 'request_confirmed', 'request_declined', 'request_needs_assignment', 'request_assigned', 'request_unclaimed', 'request_reminder', 'request_expired', 'request_status']);
 
 /** Atualização gravada para um usuário; o socket (e, depois, o push) a entrega. */
 export const notifications = pgTable('notifications', {

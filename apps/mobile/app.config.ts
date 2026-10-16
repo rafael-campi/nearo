@@ -25,6 +25,8 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
       },
     ],
     'expo-notifications',
+    // Build de release enxuto para o Android de entrada: R8 reduz o código e o resto dos recursos (Hermes e a nova arquitetura já são o padrão do SDK).
+    ['expo-build-properties', { android: { enableMinifyInReleaseBuilds: true, enableShrinkResourcesInReleaseBuilds: true } }],
     ['react-native-maps', { androidGoogleMapsApiKey: process.env.GOOGLE_MAPS_ANDROID_API_KEY }],
   ],
 });

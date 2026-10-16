@@ -36,6 +36,7 @@ Público inclui prestadores com Android de entrada. Meta: abrir < 2 s, listas a 
 - Imagens: expo-image, sempre redimensionadas antes do upload (máx. 1000 px, JPEG ~80%).
 - Estado: Zustand (app) + TanStack Query (servidor). Eventos de socket atualizam só a tela afetada.
 - Armazenamento local: MMKV.
+- Medição e checklist: `docs/performance.md` (scripts em `scripts/perf/`).
 
 ## Comandos
 
@@ -57,6 +58,9 @@ pnpm test:e2e      # API contra Postgres e Redis reais (banco despacho_test; pre
 `packages/shared` compila para `dist/`; o turbo o constrói antes dos apps.
 No mobile, adicione dependências com `npx expo install <pacote>` (ver `apps/mobile/AGENTS.md`).
 Mobile: copie `apps/mobile/.env.example` para `.env` e ajuste `EXPO_PUBLIC_API_URL` (emulador Android: `10.0.2.2`; aparelho: IP da máquina). A versão web (`pnpm --filter @despacho/mobile web`) serve para testes automatizados e precisa de `CORS_ORIGINS` na API.
+
+Operações de plataforma (sem painel na v1), rodando como dono das tabelas: `pnpm --filter @despacho/api company:create --name "Empresa X" --admin-email a@x.com` e `company:deactivate --id <uuid>` (cancela os pedidos não concluídos).
+Fotos usam Cloudflare R2 e push usa FCM; as variáveis estão em `apps/api/.env.example` (sem elas a API sobe, mas recusa fotos e não envia push).
 
 Banco: a API conecta como `despacho_app` (sujeito a RLS); migrations rodam como `despacho` (dono das tabelas).
 Nova tabela de domínio = `company_id` + `enable row level security` (sem `force`: o dono ignora RLS de propósito, para migrations e scripts de plataforma) + policy usando `app.current_company_id()` + teste de isolamento na API (404) e de RLS no Postgres.

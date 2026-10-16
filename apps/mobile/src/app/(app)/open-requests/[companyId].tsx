@@ -13,6 +13,12 @@ import { startTracking, stopTracking, trackedTarget } from '@/lib/tracking';
 
 const when = new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
 
+type Row =
+  | { kind: 'section'; title: string }
+  | { kind: 'mine'; request: ProviderServiceRequest }
+  | { kind: 'open'; request: OpenServiceRequest }
+  | { kind: 'empty' };
+
 export default function OpenRequestsScreen() {
   const { companyId, companyName } = useLocalSearchParams<{ companyId: string; companyName?: string }>();
   const queryClient = useQueryClient();
@@ -24,76 +30,17 @@ export default function OpenRequestsScreen() {
     queryKey: queryKeys.providerRequests(companyId),
     queryFn: () => api<ProviderServiceRequest[]>('/company/provider-requests', { companyId }),
   });
-  const refresh = () => queryClient.invalidateQueries({ queryKey: queryKeys.openRequests(companyId) });
+  const refreshOpen = () => queryClient.invalidateQueries({ queryKey: queryKeys.openRequests(companyId) });
+  const refreshMine = () => queryClient.invalidateQueries({ queryKey: queryKeys.providerRequests(companyId) });
   const accept = useMutation({
     mutationFn: (id: string) => api(`/company/service-requests/${id}/accept`, { method: 'POST', companyId }),
     // Perdeu a corrida ("não está mais disponível"): a lista é atualizada e o erro aparece.
-    onSettled: refresh,
+    onSettled: () => Promise.all([refreshOpen(), refreshMine()]),
   });
   const decline = useMutation({
     mutationFn: (id: string) => api(`/company/service-requests/${id}/decline`, { method: 'POST', companyId }),
-    onSettled: refresh,
+    onSettled: refreshOpen,
   });
-  const busy = accept.isPending || decline.isPending;
-  const error = accept.error ?? decline.error;
-
-  if (requests.isPending) return <ActivityIndicator style={{ marginTop: 32 }} />;
-  if (requests.isError) return <ErrorText>{requests.error.message}</ErrorText>;
-
-  return (
-    <View style={styles.container}>
-      <Stack.Screen options={{ title: companyName ? `Pedidos · ${companyName}` : 'Pedidos abertos' }} />
-      {error ? <ErrorText>{error.message}</ErrorText> : null}
-      <FlashList
-        data={requests.data}
-        keyExtractor={(item) => item.id}
-        extraData={busy}
-        ListHeaderComponent={<MyRequests companyId={companyId} requests={mine.data ?? []} />}
-        ListEmptyComponent={<Text style={styles.empty}>Nenhum pedido aberto para você agora. Avisaremos quando chegar um.</Text>}
-        renderItem={({ item }) => (
-          <View style={styles.card}>
-            {item.assigned ? <Text style={styles.status}>Atribuído a você pela empresa</Text> : null}
-            <Text style={styles.title}>{item.categoryName}</Text>
-            <Text style={styles.body}>{item.description}</Text>
-            <Text style={styles.meta}>
-              {item.neighborhood ?? 'Bairro não identificado'} · a ~{item.distanceKm.toLocaleString('pt-BR')} km · {item.clientFirstName}
-            </Text>
-            <Text style={styles.meta}>
-              Cliente: {ratingLabel(item.clientRating)} · {item.clientCompletedCount}{' '}
-              {item.clientCompletedCount === 1 ? 'pedido concluído' : 'pedidos concluídos'}
-            </Text>
-            <PhotoStrip uris={item.photos} />
-            <Text style={styles.meta}>{when.format(new Date(item.createdAt))}</Text>
-            <View style={styles.actions}>
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel={`Recusar pedido de ${item.categoryName}`}
-                disabled={busy}
-                onPress={() => decline.mutate(item.id)}
-                style={({ pressed }) => [styles.button, styles.secondary, (pressed || busy) && { opacity: 0.6 }]}
-              >
-                <Text style={styles.secondaryText}>Recusar</Text>
-              </Pressable>
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel={`Aceitar pedido de ${item.categoryName}`}
-                disabled={busy}
-                onPress={() => accept.mutate(item.id)}
-                style={({ pressed }) => [styles.button, styles.primary, (pressed || busy) && { opacity: 0.6 }]}
-              >
-                <Text style={styles.primaryText}>Aceitar</Text>
-              </Pressable>
-            </View>
-          </View>
-        )}
-      />
-    </View>
-  );
-}
-
-/** Pedidos que o prestador aceitou: endereço completo e telefone só depois da confirmação do cliente. */
-function MyRequests({ companyId, requests }: { companyId: string; requests: ProviderServiceRequest[] }) {
-  const queryClient = useQueryClient();
   const advance = useMutation({
     mutationFn: ({ id, status }: { id: string; status: string }) =>
       api(`/company/service-requests/${id}/status`, { method: 'POST', body: { status }, companyId }),
@@ -102,18 +49,17 @@ function MyRequests({ companyId, requests }: { companyId: string; requests: Prov
       if (status === 'en_route') void startTracking({ serviceRequestId: id, companyId });
       else void stopTracking();
     },
-    onSettled: () => queryClient.invalidateQueries({ queryKey: queryKeys.providerRequests(companyId) }),
+    onSettled: refreshMine,
   });
-
   const withdraw = useMutation({
     mutationFn: ({ id, reason }: { id: string; reason: string }) =>
       api(`/company/service-requests/${id}/withdraw`, { method: 'POST', body: { reason }, companyId }),
     onSuccess: () => void stopTracking(),
-    onSettled: () => queryClient.invalidateQueries({ queryKey: queryKeys.providerRequests(companyId) }),
+    onSettled: refreshMine,
   });
 
   // Garante o envio se o app foi reaberto com um pedido a caminho, e para se o pedido já não está.
-  const enRouteId = requests.find((r) => r.status === 'en_route')?.id;
+  const enRouteId = mine.data?.find((r) => r.status === 'en_route')?.id;
   useEffect(() => {
     void (async () => {
       const tracked = await trackedTarget();
@@ -124,79 +70,171 @@ function MyRequests({ companyId, requests }: { companyId: string; requests: Prov
       }
     })();
   }, [enRouteId, companyId]);
-  if (requests.length === 0) return null;
+
+  if (requests.isPending) return <ActivityIndicator style={{ marginTop: 32 }} />;
+  if (requests.isError) return <ErrorText>{requests.error.message}</ErrorText>;
+
+  const own = mine.data ?? [];
+  // Tudo numa lista só (FlashList): "Seus pedidos" pode crescer, então nada de ScrollView + map.
+  const rows: Row[] = [
+    ...(own.length > 0 ? ([{ kind: 'section', title: 'Seus pedidos' }, ...own.map((request) => ({ kind: 'mine', request }) as const)] as Row[]) : []),
+    { kind: 'section', title: 'Pedidos abertos' },
+    ...(requests.data.length === 0 ? ([{ kind: 'empty' }] as Row[]) : requests.data.map((request) => ({ kind: 'open', request }) as const)),
+  ];
+  const busy = accept.isPending || decline.isPending;
+  const error = accept.error ?? decline.error ?? advance.error;
+
   return (
-    <View>
-      <Text style={styles.section} accessibilityRole="header">
-        Seus pedidos
+    <View style={styles.container}>
+      <Stack.Screen options={{ title: companyName ? `Pedidos · ${companyName}` : 'Pedidos abertos' }} />
+      {error ? <ErrorText>{error.message}</ErrorText> : null}
+      <FlashList
+        data={rows}
+        keyExtractor={(row) => (row.kind === 'section' ? `section:${row.title}` : row.kind === 'empty' ? 'empty' : `${row.kind}:${row.request.id}`)}
+        getItemType={(row) => row.kind}
+        extraData={[busy, advance.isPending, withdraw.isPending]}
+        renderItem={({ item: row }) => {
+          switch (row.kind) {
+            case 'section':
+              return (
+                <Text style={styles.section} accessibilityRole="header">
+                  {row.title}
+                </Text>
+              );
+            case 'empty':
+              return <Text style={styles.empty}>Nenhum pedido aberto para você agora. Avisaremos quando chegar um.</Text>;
+            case 'mine':
+              return (
+                <MineCard
+                  request={row.request}
+                  companyId={companyId}
+                  advancing={advance.isPending}
+                  withdrawing={withdraw.isPending}
+                  withdrawError={withdraw.error?.message}
+                  onAdvance={(status) => advance.mutate({ id: row.request.id, status })}
+                  onWithdraw={(reason) => withdraw.mutate({ id: row.request.id, reason })}
+                />
+              );
+            case 'open':
+              return <OpenCard item={row.request} busy={busy} onAccept={() => accept.mutate(row.request.id)} onDecline={() => decline.mutate(row.request.id)} />;
+          }
+        }}
+      />
+    </View>
+  );
+}
+
+function OpenCard({ item, busy, onAccept, onDecline }: { item: OpenServiceRequest; busy: boolean; onAccept: () => void; onDecline: () => void }) {
+  return (
+    <View style={styles.card}>
+      {item.assigned ? <Text style={styles.status}>Atribuído a você pela empresa</Text> : null}
+      <Text style={styles.title}>{item.categoryName}</Text>
+      <Text style={styles.body}>{item.description}</Text>
+      <Text style={styles.meta}>
+        {item.neighborhood ?? 'Bairro não identificado'} · a ~{item.distanceKm.toLocaleString('pt-BR')} km · {item.clientFirstName}
       </Text>
-      {advance.error ? <ErrorText>{advance.error.message}</ErrorText> : null}
-      {requests.map((r) => (
-        <View key={r.id} style={styles.card} accessibilityLabel={`Pedido de ${r.categoryName}: ${serviceRequestStatusLabel[r.status]}`}>
-          <Text style={styles.title}>{r.categoryName}</Text>
-          <Text style={styles.body}>{r.description}</Text>
-          <PhotoStrip uris={r.photos} />
-          {r.details ? (
-            <>
-              <Text style={styles.meta}>
-                {r.details.clientName}
-                {r.details.clientPhone ? ` · ${r.details.clientPhone.replace(/^(\d{2})(\d{4,5})(\d{4})$/, '($1) $2-$3')}` : ''}
-              </Text>
-              <Text style={styles.meta}>
-                {[r.neighborhood, r.details.addressComplement].filter(Boolean).join(' · ')} ({r.details.location.latitude.toFixed(5)},{' '}
-                {r.details.location.longitude.toFixed(5)})
-              </Text>
-            </>
-          ) : (
-            <Text style={styles.meta}>{r.neighborhood ?? 'Bairro não identificado'} · {r.clientFirstName}</Text>
-          )}
-          <Text style={styles.status}>
-            {r.status === 'awaiting_client' ? 'Aguardando o cliente confirmar' : serviceRequestStatusLabel[r.status]}
+      <Text style={styles.meta}>
+        Cliente: {ratingLabel(item.clientRating)} · {item.clientCompletedCount}{' '}
+        {item.clientCompletedCount === 1 ? 'pedido concluído' : 'pedidos concluídos'}
+      </Text>
+      <PhotoStrip uris={item.photos} />
+      <Text style={styles.meta}>{when.format(new Date(item.createdAt))}</Text>
+      <View style={styles.actions}>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={`Recusar pedido de ${item.categoryName}`}
+          disabled={busy}
+          onPress={onDecline}
+          style={({ pressed }) => [styles.button, styles.secondary, (pressed || busy) && { opacity: 0.6 }]}
+        >
+          <Text style={styles.secondaryText}>Recusar</Text>
+        </Pressable>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={`Aceitar pedido de ${item.categoryName}`}
+          disabled={busy}
+          onPress={onAccept}
+          style={({ pressed }) => [styles.button, styles.primary, (pressed || busy) && { opacity: 0.6 }]}
+        >
+          <Text style={styles.primaryText}>Aceitar</Text>
+        </Pressable>
+      </View>
+    </View>
+  );
+}
+
+/** Pedido que o prestador aceitou: endereço completo e telefone só depois da confirmação do cliente. */
+function MineCard({
+  request: r,
+  companyId,
+  advancing,
+  withdrawing,
+  withdrawError,
+  onAdvance,
+  onWithdraw,
+}: {
+  request: ProviderServiceRequest;
+  companyId: string;
+  advancing: boolean;
+  withdrawing: boolean;
+  withdrawError?: string;
+  onAdvance: (status: string) => void;
+  onWithdraw: (reason: string) => void;
+}) {
+  const next = nextServiceStep[r.status];
+  return (
+    <View style={styles.card} accessibilityLabel={`Pedido de ${r.categoryName}: ${serviceRequestStatusLabel[r.status]}`}>
+      <Text style={styles.title}>{r.categoryName}</Text>
+      <Text style={styles.body}>{r.description}</Text>
+      <PhotoStrip uris={r.photos} />
+      {r.details ? (
+        <>
+          <Text style={styles.meta}>
+            {r.details.clientName}
+            {r.details.clientPhone ? ` · ${r.details.clientPhone.replace(/^(\d{2})(\d{4,5})(\d{4})$/, '($1) $2-$3')}` : ''}
           </Text>
-          {r.status === 'completed' ? (
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel="Avaliar cliente"
-              onPress={() => router.push({ pathname: '/review/[id]', params: { id: r.id, companyId } })}
-              style={({ pressed }) => [styles.button, styles.primary, { marginTop: 8 }, pressed && { opacity: 0.7 }]}
-            >
-              <Text style={styles.primaryText}>Avaliar cliente</Text>
-            </Pressable>
-          ) : null}
-          {r.details ? (
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel="Abrir conversa"
-              onPress={() => router.push({ pathname: '/chat/[id]', params: { id: r.id, companyId, as: 'provider', status: r.status } })}
-              style={({ pressed }) => [styles.button, styles.secondary, { marginTop: 8 }, pressed && { opacity: 0.7 }]}
-            >
-              <Text style={styles.secondaryText}>Conversa</Text>
-            </Pressable>
-          ) : null}
-          {nextServiceStep[r.status] ? (
-            <Pressable
-              accessibilityRole="button"
-              disabled={advance.isPending}
-              onPress={() => advance.mutate({ id: r.id, status: nextServiceStep[r.status]!.to })}
-              style={({ pressed }) => [styles.button, styles.primary, { marginTop: 8 }, (pressed || advance.isPending) && { opacity: 0.6 }]}
-            >
-              <Text style={styles.primaryText}>{nextServiceStep[r.status]!.label}</Text>
-            </Pressable>
-          ) : null}
-          {withdrawableStatuses.includes(r.status) ? (
-            <ReasonAction
-              label="Desistir do pedido"
-              confirmLabel="Confirmar desistência"
-              pending={withdraw.isPending}
-              error={withdraw.error?.message}
-              onSubmit={(reason) => withdraw.mutate({ id: r.id, reason })}
-            />
-          ) : null}
-        </View>
-      ))}
-      <Text style={styles.section} accessibilityRole="header">
-        Pedidos abertos
-      </Text>
+          <Text style={styles.meta}>
+            {[r.neighborhood, r.details.addressComplement].filter(Boolean).join(' · ')} ({r.details.location.latitude.toFixed(5)},{' '}
+            {r.details.location.longitude.toFixed(5)})
+          </Text>
+        </>
+      ) : (
+        <Text style={styles.meta}>{r.neighborhood ?? 'Bairro não identificado'} · {r.clientFirstName}</Text>
+      )}
+      <Text style={styles.status}>{r.status === 'awaiting_client' ? 'Aguardando o cliente confirmar' : serviceRequestStatusLabel[r.status]}</Text>
+      {r.status === 'completed' ? (
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Avaliar cliente"
+          onPress={() => router.push({ pathname: '/review/[id]', params: { id: r.id, companyId } })}
+          style={({ pressed }) => [styles.button, styles.primary, { marginTop: 8 }, pressed && { opacity: 0.7 }]}
+        >
+          <Text style={styles.primaryText}>Avaliar cliente</Text>
+        </Pressable>
+      ) : null}
+      {r.details ? (
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Abrir conversa"
+          onPress={() => router.push({ pathname: '/chat/[id]', params: { id: r.id, companyId, as: 'provider', status: r.status } })}
+          style={({ pressed }) => [styles.button, styles.secondary, { marginTop: 8 }, pressed && { opacity: 0.7 }]}
+        >
+          <Text style={styles.secondaryText}>Conversa</Text>
+        </Pressable>
+      ) : null}
+      {next ? (
+        <Pressable
+          accessibilityRole="button"
+          disabled={advancing}
+          onPress={() => onAdvance(next.to)}
+          style={({ pressed }) => [styles.button, styles.primary, { marginTop: 8 }, (pressed || advancing) && { opacity: 0.6 }]}
+        >
+          <Text style={styles.primaryText}>{next.label}</Text>
+        </Pressable>
+      ) : null}
+      {withdrawableStatuses.includes(r.status) ? (
+        <ReasonAction label="Desistir do pedido" confirmLabel="Confirmar desistência" pending={withdrawing} error={withdrawError} onSubmit={onWithdraw} />
+      ) : null}
     </View>
   );
 }

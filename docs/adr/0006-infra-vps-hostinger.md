@@ -7,7 +7,7 @@ Meta inicial: pelo menos 200 usuários simultâneos, custo mensal baixo.
 
 ## Decisão
 - VPS Hostinger KVM 4 (4 vCPU, 16 GB RAM, 200 GB NVMe), data center São Paulo.
-- Docker Compose: Caddy (HTTPS), api ×2, worker, admin, Postgres + PostGIS, Redis, MinIO.
+- Docker Compose: Caddy (HTTPS), api ×2, worker, admin, Postgres + PostGIS, Redis. Arquivos no Cloudflare R2 (ADR 0009).
 - Postgres e Redis sem porta exposta; firewall só com 22/80/443; SSH só por chave; fail2ban; atualizações automáticas de segurança.
 - Backup diário (`pg_dump`) + WAL contínuo para storage externo (Cloudflare R2 ou Backblaze B2); restauração testada.
 - Monitoramento: Uptime Kuma + Netdata/Grafana.

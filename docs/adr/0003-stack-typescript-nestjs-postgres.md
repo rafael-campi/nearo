@@ -6,7 +6,7 @@
 - **Backend:** NestJS (Node.js, TypeScript), REST + Socket.IO, BullMQ para filas.
 - **Banco:** PostgreSQL + PostGIS (relacional, geográfico e chat no mesmo banco). ORM: Drizzle (bom suporte a SQL puro e PostGIS).
 - **Cache / pub-sub / filas:** Redis (adapter do Socket.IO, BullMQ, última posição do prestador).
-- **Arquivos:** S3 compatível (MinIO na VPS), upload direto do app por URL assinada.
+- **Arquivos:** Cloudflare R2, compatível com S3 (ADR 0009), upload direto do app por URL assinada.
 - **Push:** FCM via firebase-admin, disparado pelo worker.
 - **Web admin:** Next.js + TanStack Query + shadcn/ui.
 - **Mobile:** React Native + Expo (ADR 0004).

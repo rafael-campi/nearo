@@ -32,10 +32,10 @@ async function InviteDetails({ params }: { params: Promise<{ token: string }> })
     <>
       <h1 className="mb-1 text-xl font-semibold">{invite.companyName}</h1>
       <p className="mb-6 text-sm text-zinc-500">
-        Convite de administrador para <strong>{invite.email}</strong>.
+        Convite de {invite.role === "admin" ? "administrador" : "prestador"} para <strong>{invite.email}</strong>.
         {invite.hasAccount ? " Você já tem conta: confirme com sua senha." : " Crie sua conta para aceitar."}
       </p>
-      <AcceptForm token={token} hasAccount={invite.hasAccount} />
+      <AcceptForm token={token} role={invite.role} hasAccount={invite.hasAccount} />
     </>
   );
 }

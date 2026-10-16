@@ -5,6 +5,7 @@ import { logout } from "../actions";
 
 const nav = [
   { href: "/categories", label: "Categorias" },
+  { href: "/providers", label: "Prestadores" },
   { href: "/clients", label: "Clientes" },
   { href: "/admins", label: "Administradores" },
 ] as const;

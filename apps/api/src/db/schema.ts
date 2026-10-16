@@ -1,7 +1,17 @@
 // Tabelas do domínio (Drizzle). Toda tabela de domínio tem company_id e policy de RLS (ADR 0001);
 // as policies ficam em migrations SQL manuais.
 import { sql } from 'drizzle-orm';
-import { boolean, pgEnum, pgTable, text, timestamp, unique, uniqueIndex, uuid } from 'drizzle-orm/pg-core';
+import {
+  boolean,
+  pgEnum,
+  pgTable,
+  primaryKey,
+  text,
+  timestamp,
+  unique,
+  uniqueIndex,
+  uuid,
+} from 'drizzle-orm/pg-core';
 
 const id = () => uuid('id').primaryKey().defaultRandom();
 const createdAt = () => timestamp('created_at', { withTimezone: true }).notNull().defaultNow();
@@ -81,4 +91,21 @@ export const categories = pgTable(
   },
   // Nome único por empresa, sem diferenciar maiúsculas.
   (t) => [uniqueIndex('categories_company_name_unique').on(t.companyId, sql`lower(${t.name})`)],
+);
+
+/** Categorias que um prestador atende numa empresa (definidas pelo admin). */
+export const providerCategories = pgTable(
+  'provider_categories',
+  {
+    companyId: uuid('company_id')
+      .notNull()
+      .references(() => companies.id, { onDelete: 'cascade' }),
+    membershipId: uuid('membership_id')
+      .notNull()
+      .references(() => memberships.id, { onDelete: 'cascade' }),
+    categoryId: uuid('category_id')
+      .notNull()
+      .references(() => categories.id, { onDelete: 'cascade' }),
+  },
+  (t) => [primaryKey({ columns: [t.membershipId, t.categoryId] })],
 );

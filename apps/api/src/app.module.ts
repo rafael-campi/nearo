@@ -13,6 +13,8 @@ import { HealthController } from './health/health.controller.js';
 import { InvitesController } from './invites/invites.controller.js';
 import { InvitesService } from './invites/invites.service.js';
 import { MailModule } from './mail/mailer.js';
+import { ProvidersController } from './providers/providers.controller.js';
+import { ProvidersService } from './providers/providers.service.js';
 import { RedisModule } from './redis/redis.module.js';
 
 @Global()
@@ -24,7 +26,7 @@ class ConfigModule {}
 
 @Module({
   imports: [ConfigModule, ClockModule, DatabaseModule, RedisModule, MailModule, AuthModule],
-  controllers: [HealthController, CompanyController, InvitesController, CategoriesController, ClientsController],
-  providers: [CompaniesService, InvitesService, CategoriesService, ClientsService],
+  controllers: [HealthController, CompanyController, InvitesController, CategoriesController, ClientsController, ProvidersController],
+  providers: [CompaniesService, InvitesService, CategoriesService, ClientsService, ProvidersService],
 })
 export class AppModule {}

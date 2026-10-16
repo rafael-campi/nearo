@@ -24,6 +24,8 @@ import { Mailer } from '../mail/mailer.js';
 
 const INVITE_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 
+const ROLE_LABEL: Record<MembershipRole, string> = { admin: 'administrador', provider: 'prestador', client: 'cliente' };
+
 type InviteRow = {
   id: string;
   company_id: string;
@@ -67,7 +69,7 @@ export class InvitesService {
     await this.mailer.send({
       to: input.email,
       subject: `Convite para ${input.companyName} no Despacho`,
-      text: `Você foi convidado para ${input.companyName}.\n\nAceite em: ${this.config.ADMIN_URL}/invites/${token}\n\nO convite vale por 7 dias.`,
+      text: `Você foi convidado para ser ${ROLE_LABEL[input.role]} em ${input.companyName}.\n\nAceite em: ${this.config.ADMIN_URL}/invites/${token}\n\nO convite vale por 7 dias.`,
     });
     return { ...invite, expiresAt: invite.expiresAt.toISOString() };
   }

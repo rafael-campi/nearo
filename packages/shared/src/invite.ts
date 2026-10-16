@@ -23,9 +23,10 @@ export const acceptInviteResponseSchema = z.object({
 });
 export type AcceptInviteResponse = z.infer<typeof acceptInviteResponseSchema>;
 
+/** Admin convida outros admins e prestadores; clientes entram pelo código de acesso. */
 export const createInviteRequestSchema = z.object({
   email: emailSchema,
-  role: z.literal('admin'),
+  role: z.enum(['admin', 'provider']),
 });
 export type CreateInviteRequest = z.infer<typeof createInviteRequestSchema>;
 

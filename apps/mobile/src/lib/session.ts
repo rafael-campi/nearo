@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { useMode } from './mode';
 import { queryClient } from './query';
 import { tokenStorage } from './token-storage';
 
@@ -29,6 +30,7 @@ export const useSession = create<SessionState>((set) => ({
   async signOut() {
     await tokenStorage.clear();
     queryClient.clear();
+    useMode.setState({ mode: null });
     set({ token: null, status: 'signedOut' });
   },
   setPendingJoinCode(code) {

@@ -1,11 +1,19 @@
 "use client";
 
+import type { MembershipRole } from "@despacho/shared";
 import { useActionState } from "react";
 import { Field, FormMessage, SubmitButton, type FormState } from "@/components/form";
 import { acceptInvite } from "../../actions";
 
-export function AcceptForm({ token, hasAccount }: { token: string; hasAccount: boolean }) {
-  const [state, action, pending] = useActionState(acceptInvite.bind(null, token), {} as FormState);
+export function AcceptForm({ token, role, hasAccount }: { token: string; role: MembershipRole; hasAccount: boolean }) {
+  const [state, action, pending] = useActionState(acceptInvite.bind(null, token, role), {} as FormState);
+  if (state.success) {
+    return (
+      <p aria-live="polite" className="text-sm text-emerald-600">
+        {state.message}
+      </p>
+    );
+  }
   return (
     <form action={action} className="flex flex-col gap-4">
       {hasAccount ? (

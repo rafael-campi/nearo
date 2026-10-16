@@ -10,6 +10,9 @@ import {
   loginRequestSchema,
   type AcceptInviteResponse,
   type Invite,
+  type MembershipRole,
+  type Provider,
+  setProviderCategoriesRequestSchema,
   type MeResponse,
   type SessionResponse,
 } from "@despacho/shared";
@@ -43,7 +46,12 @@ export async function login(_: FormState, formData: FormData): Promise<FormState
   redirect("/");
 }
 
-export async function acceptInvite(token: string, _: FormState, formData: FormData): Promise<FormState> {
+export async function acceptInvite(
+  token: string,
+  role: MembershipRole,
+  _: FormState,
+  formData: FormData,
+): Promise<FormState> {
   const values = keepValues(formData, "name");
   const input = acceptInviteRequestSchema.safeParse({
     name: formData.get("name") || undefined,
@@ -60,16 +68,21 @@ export async function acceptInvite(token: string, _: FormState, formData: FormDa
   });
   if (!res.ok) return { message: errorMessage(res.data, "Não foi possível aceitar o convite"), values };
 
+  // Prestador trabalha pelo app, não pelo painel: encerra a sessão criada pelo aceite.
+  if (role !== "admin") {
+    await api("/auth/logout", { method: "POST", token: res.data.token });
+    return { success: true, message: "Convite aceito! Agora entre no app Despacho com seu e-mail e senha." };
+  }
   await saveSession(res.data.token, res.data.companyId);
   redirect("/");
 }
 
-export async function inviteAdmin(_: FormState, formData: FormData): Promise<FormState> {
+export async function invite(role: "admin" | "provider", _: FormState, formData: FormData): Promise<FormState> {
   const { token, companyId } = await getSession();
   if (!token || !companyId) redirect("/login");
 
   const values = keepValues(formData, "email");
-  const input = createInviteRequestSchema.safeParse({ email: formData.get("email"), role: "admin" });
+  const input = createInviteRequestSchema.safeParse({ email: formData.get("email"), role });
   if (!input.success) return { message: input.error.issues[0].message, values };
 
   const res = await api<Invite>("/company/invites", { method: "POST", body: input.data, token, companyId });
@@ -115,4 +128,18 @@ export async function setCategoryActive(id: string, active: boolean): Promise<vo
 export async function setClientActive(membershipId: string, active: boolean): Promise<void> {
   await companyApi<Client>(`/company/clients/${membershipId}`, { method: "PATCH", body: { active } });
   refresh();
+}
+
+export async function setProviderActive(membershipId: string, active: boolean): Promise<void> {
+  await companyApi<Provider>(`/company/providers/${membershipId}`, { method: "PATCH", body: { active } });
+  refresh();
+}
+
+export async function setProviderCategories(membershipId: string, _: FormState, formData: FormData): Promise<FormState> {
+  const input = setProviderCategoriesRequestSchema.safeParse({ categoryIds: formData.getAll("categoryId") });
+  if (!input.success) return { message: "Categoria inválida" };
+  const res = await companyApi<Provider>(`/company/providers/${membershipId}/categories`, { method: "PUT", body: input.data });
+  if (!res.ok) return { message: errorMessage(res.data, "Não foi possível salvar as categorias") };
+  refresh();
+  return { success: true, message: "Categorias salvas" };
 }

@@ -59,3 +59,22 @@ export async function joinCodeOf(s: TestApp, admin: { token: string; companyId: 
   const res = await http(s).get('/company/join-code').set(asUser(admin.token, admin.companyId)).expect(200);
   return res.body.joinCode;
 }
+
+/** Admin convida um prestador e ele aceita criando conta; devolve o token da sessão. */
+export async function providerOf(
+  s: TestApp,
+  admin: { token: string; companyId: string },
+  name: string,
+  email: string,
+): Promise<string> {
+  await http(s)
+    .post('/company/invites')
+    .set(asUser(admin.token, admin.companyId))
+    .send({ email, role: 'provider' })
+    .expect(201);
+  const res = await http(s)
+    .post(`/invites/${s.mailer.inviteTokenFor(email)}/accept`)
+    .send({ name, password: 'senha-prestador' })
+    .expect(200);
+  return res.body.token;
+}
